@@ -1,0 +1,15 @@
+[package]
+name = "myrello"
+version = "0.1.0"
+authors = ["Luca Pizzamiglio <luca.pizzamiglio@gmail.com>"]
+
+[dependencies]
+structopt = "0.2"
+clap-verbosity-flag = "0.1"
+log = "0.4"
+env_logger = "0.5"
+rusqlite = "0.13"
+failure = "0.1"
+failure_derive = "0.1"
+dirs = "1.0"
+mkdirp = "0.1"
