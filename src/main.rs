@@ -41,12 +41,21 @@ enum Cmd {
     /// Work on the task database
     #[structopt(name = "database")]
     Db(DbOpt),
+    /// Work on tasks/todos
+    #[structopt(name = "task")]
+    Task(TaskOpt),
 }
 
 #[derive(Debug, StructOpt)]
 struct DbOpt {
     #[structopt(subcommand)]
     cmd: DbCmd,
+}
+
+#[derive(Debug, StructOpt)]
+struct TaskOpt {
+    #[structopt(subcommand)]
+    cmd: TaskCmd,
 }
 
 #[derive(Debug, StructOpt)]
@@ -57,6 +66,16 @@ enum DbCmd {
         /// Force the initialization. Current data found in the data file will be lost.
         #[structopt(short = "f", long = "force")]
         force: bool,
+    },
+}
+
+#[derive(Debug, StructOpt)]
+enum TaskCmd {
+    /// Add a task initialization
+    #[structopt(name = "add")]
+    Add {
+        #[structopt()]
+        descr: Vec<String>,
     },
 }
 
@@ -88,6 +107,16 @@ fn main() -> Result<(), Error> {
                     info!("database initialization [{:?}]", dbfile);
                 }
                 let db = db::init(&dbfile)?;
+            }
+        },
+        Cmd::Task(taskcmd) => match taskcmd.cmd {
+            TaskCmd::Add { descr } => {
+                let mut text = String::new();
+                for x in descr {
+                    text.push_str(&x);
+                    text.push(' ');
+                }
+                info!("add a task with description {}", text);
             }
         },
         _ => (),
