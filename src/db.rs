@@ -1,3 +1,4 @@
+use chrono::prelude::*;
 use rusqlite::{Connection, Error};
 use std::path::Path;
 
@@ -37,4 +38,24 @@ pub fn init(filename: &Path) -> Result<Connection, Error> {
         &[],
     )?;
     Ok(c)
+}
+
+fn get_db(filename: &Path) -> Result<Connection, Error> {
+    Connection::open(filename)
+}
+
+pub fn add_task(filename: &Path, descr: &str) -> Result<(), Error> {
+    let db = get_db(filename)?;
+    let creation_date: DateTime<Utc> = Utc::now();
+    let creation_date_str = creation_date.format("%Y-%m-%d %H:%M:%S").to_string();
+    let mut newdescr = String::from(descr.trim_right());
+    newdescr.truncate(1024);
+    match db.execute(
+        "INSERT INTO todos (creation_date, descr, in_progress)
+        VALUES (?1, ?2, false);",
+        &[&creation_date_str, &newdescr],
+    ) {
+        Ok(_) => Ok(()),
+        Err(e) => Err(e),
+    }
 }

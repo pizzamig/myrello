@@ -7,6 +7,7 @@ extern crate dirs;
 extern crate failure;
 //#[macro_use]
 //extern crate failure_derive;
+extern crate chrono;
 extern crate mkdirp;
 extern crate rusqlite;
 
@@ -106,7 +107,7 @@ fn main() -> Result<(), Error> {
                 } else {
                     info!("database initialization [{:?}]", dbfile);
                 }
-                let db = db::init(&dbfile)?;
+                db::init(&dbfile)?;
             }
         },
         Cmd::Task(taskcmd) => match taskcmd.cmd {
@@ -117,9 +118,10 @@ fn main() -> Result<(), Error> {
                     text.push(' ');
                 }
                 info!("add a task with description {}", text);
+                db::add_task(&dbfile, &text)?;
             }
         },
-        _ => (),
+        Cmd::Show => {}
     };
     trace!("myrello end");
     Ok(())
