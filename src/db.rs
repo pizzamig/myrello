@@ -1,3 +1,4 @@
+use super::task;
 use chrono::prelude::*;
 use rusqlite::{Connection, Error};
 use std::path::Path;
@@ -58,4 +59,19 @@ pub fn add_task(filename: &Path, descr: &str) -> Result<(), Error> {
         Ok(_) => Ok(()),
         Err(e) => Err(e),
     }
+}
+
+pub fn get_open_tasks(filename: &Path) -> Result<Vec<task::Task>, Error> {
+    let db = get_db(filename)?;
+    let mut stmt = db.prepare(
+        "SELECT id,descr
+        FROM todos
+        WHERE completion_date IS NULL;",
+    )?;
+    let query_iter = stmt.query_map(&[], |row| task::Task {
+        id: row.get(0),
+        descr: row.get(1),
+    })?;
+    let rc = query_iter.map(|x| x.unwrap()).collect();
+    Ok(rc)
 }

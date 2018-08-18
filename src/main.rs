@@ -12,6 +12,7 @@ extern crate mkdirp;
 extern crate rusqlite;
 
 mod db;
+mod task;
 
 use clap_verbosity_flag::Verbosity;
 use failure::Error;
@@ -121,7 +122,12 @@ fn main() -> Result<(), Error> {
                 db::add_task(&dbfile, &text)?;
             }
         },
-        Cmd::Show => {}
+        Cmd::Show => {
+            let tasks = db::get_open_tasks(&dbfile)?;
+            for t in tasks {
+                println!("{}\t{}", t.id, t.descr);
+            }
+        }
     };
     trace!("myrello end");
     Ok(())

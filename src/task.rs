@@ -5,7 +5,7 @@ enum Status {
     Block,
 }
 
-struct Task {
-    title: String,
-    status: Status,
+pub struct Task {
+    pub id: u32,
+    pub descr: String,
 }
