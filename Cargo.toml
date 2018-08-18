@@ -1,7 +1,7 @@
 [package]
 name = "myrello"
 version = "0.1.0"
-authors = ["Luca Pizzamiglio <luca.pizzamiglio@gmail.com>"]
+authors = ["Luca Pizzamiglio <pizzamig@FreeBSD.org>"]
 
 [dependencies]
 structopt = "0.2"
