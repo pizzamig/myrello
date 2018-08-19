@@ -45,7 +45,7 @@ fn get_db(filename: &Path) -> Result<Connection, Error> {
     Connection::open(filename)
 }
 
-pub fn add_task(filename: &Path, descr: &str) -> Result<(), Error> {
+pub fn add_task(filename: &Path, descr: &str) -> Result<i32, Error> {
     let db = get_db(filename)?;
     let creation_date: DateTime<Utc> = Utc::now();
     let creation_date_str = creation_date.format("%Y-%m-%d %H:%M:%S").to_string();
@@ -56,9 +56,32 @@ pub fn add_task(filename: &Path, descr: &str) -> Result<(), Error> {
         VALUES (?1, ?2, false);",
         &[&creation_date_str, &newdescr],
     ) {
-        Ok(_) => Ok(()),
-        Err(e) => Err(e),
+        Ok(_) => (),
+        Err(e) => return Err(e),
+    };
+    let new_id: i32 = db.query_row(
+        "SELECT id
+        FROM todos
+        WHERE creation_date = ?1;",
+        &[&creation_date_str],
+        |row| row.get(0),
+    )?;
+    Ok(new_id)
+}
+
+pub fn add_labels(filename: &Path, todo_id: i32, labels: &Vec<String>) -> Result<(), Error> {
+    let db = get_db(filename)?;
+    for l in labels {
+        match db.execute(
+            "INSERT INTO todo_label (id, label)
+            VALUES (?1, ?2);",
+            &[&todo_id, l],
+        ) {
+            Ok(_) => (),
+            Err(e) => return Err(e),
+        };
     }
+    Ok(())
 }
 
 pub fn get_open_tasks(filename: &Path) -> Result<Vec<task::Task>, Error> {

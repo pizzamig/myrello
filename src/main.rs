@@ -1,5 +1,4 @@
 extern crate clap_verbosity_flag;
-#[macro_use]
 extern crate structopt;
 #[macro_use]
 extern crate log;
@@ -76,6 +75,10 @@ enum TaskCmd {
     /// Add a task initialization
     #[structopt(name = "add")]
     Add {
+        /// attach one or more label to the task
+        #[structopt(short = "l", long = "label")]
+        labels: Vec<String>,
+        /// The task description
         #[structopt()]
         descr: Vec<String>,
     },
@@ -112,14 +115,17 @@ fn main() -> Result<(), Error> {
             }
         },
         Cmd::Task(taskcmd) => match taskcmd.cmd {
-            TaskCmd::Add { descr } => {
+            TaskCmd::Add { labels, descr } => {
                 let mut text = String::new();
                 for x in descr {
                     text.push_str(&x);
                     text.push(' ');
                 }
                 info!("add a task with description {}", text);
-                db::add_task(&dbfile, &text)?;
+                let new_id = db::add_task(&dbfile, &text)?;
+                if !labels.is_empty() {
+                    db::add_labels(&dbfile, new_id, &labels)?;
+                }
             }
         },
         Cmd::Show => {
