@@ -72,10 +72,12 @@ pub fn add_task(filename: &Path, descr: &str) -> Result<i32, Error> {
 pub fn add_labels(filename: &Path, todo_id: i32, labels: &Vec<String>) -> Result<(), Error> {
     let db = get_db(filename)?;
     for l in labels {
+        let mut ll = String::from(l.trim());
+        ll.truncate(256);
         match db.execute(
-            "INSERT INTO todo_label (id, label)
+            "INSERT INTO todo_label (todo_id, label)
             VALUES (?1, ?2);",
-            &[&todo_id, l],
+            &[&todo_id, &ll],
         ) {
             Ok(_) => (),
             Err(e) => return Err(e),

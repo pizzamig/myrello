@@ -82,6 +82,16 @@ enum TaskCmd {
         #[structopt()]
         descr: Vec<String>,
     },
+    /// Add a lable to an existing task
+    #[structopt(name = "add-label")]
+    AddLabel {
+        /// attach one or more label to the task
+        #[structopt(short = "l", long = "label")]
+        labels: Vec<String>,
+        /// The task description
+        #[structopt(short = "t", long = "task")]
+        task: i32,
+    },
 }
 
 fn main() -> Result<(), Error> {
@@ -126,6 +136,12 @@ fn main() -> Result<(), Error> {
                 if !labels.is_empty() {
                     db::add_labels(&dbfile, new_id, &labels)?;
                 }
+            }
+            TaskCmd::AddLabel { labels, task } => {
+                if labels.is_empty() {
+                    error!("You have to specify at least one label");
+                }
+                db::add_labels(&dbfile, task, &labels)?;
             }
         },
         Cmd::Show => {
