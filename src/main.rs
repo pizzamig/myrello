@@ -89,6 +89,9 @@ enum TaskCmd {
         /// attach one or more label to the task
         #[structopt(short = "l", long = "label", raw(number_of_values = "1"))]
         labels: Vec<String>,
+        /// set a priority
+        #[structopt(short = "p", long = "priority")]
+        priority: Option<String>,
         /// The task description
         #[structopt()]
         descr: Vec<String>,
@@ -99,6 +102,15 @@ enum TaskCmd {
         /// attach one or more label to the task
         #[structopt(short = "l", long = "label", raw(number_of_values = "1"))]
         labels: Vec<String>,
+        /// The task description
+        #[structopt(short = "t", long = "task")]
+        task: u32,
+    },
+    #[structopt(name = "priority")]
+    Priority {
+        /// the priority level
+        #[structopt(short = "p", long = "priority")]
+        priority: String,
         /// The task description
         #[structopt(short = "t", long = "task")]
         task: u32,
@@ -150,7 +162,11 @@ fn main() -> Result<(), Error> {
             }
         },
         Cmd::Task(taskcmd) => match taskcmd.cmd {
-            TaskCmd::Add { labels, descr } => {
+            TaskCmd::Add {
+                labels,
+                priority,
+                descr,
+            } => {
                 let mut text = String::new();
                 for x in descr {
                     text.push_str(&x);
@@ -158,8 +174,14 @@ fn main() -> Result<(), Error> {
                 }
                 info!("add a task with description {}", text);
                 let new_id = db::add_task(&dbfile, &text)?;
+                info!("task has id {}", new_id);
                 if !labels.is_empty() {
+                    debug!("set labels");
                     db::add_labels(&dbfile, new_id, &labels)?;
+                }
+                if let Some(priority_str) = priority {
+                    debug!("set priority {}", priority_str);
+                    db::set_priority(&dbfile, new_id, &priority_str)?;
                 }
             }
             TaskCmd::AddLabel { labels, task } => {
@@ -167,6 +189,9 @@ fn main() -> Result<(), Error> {
                     error!("You have to specify at least one label");
                 }
                 db::add_labels(&dbfile, task, &labels)?;
+            }
+            TaskCmd::Priority { priority, task } => {
+                db::set_priority(&dbfile, task, &priority)?;
             }
             TaskCmd::Done { task } => {
                 info!("Completed task {}", task);

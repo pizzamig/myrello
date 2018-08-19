@@ -94,13 +94,7 @@ pub fn add_task(filename: &Path, descr: &str) -> Result<u32, Error> {
         &[],
         |row| row.get(0),
     )?;
-    let priority: u32 = db.query_row(
-        "SELECT id
-        FROM priority
-        WHERE descr = \"normal\";",
-        &[],
-        |row| row.get(0),
-    )?;
+    let priority = dbget_priority_id(&db, "normal")?;
     match db.execute(
         "INSERT INTO todos (creation_date, descr, priority_id, status_id, story_points)
         VALUES (?1, ?2, ?3, ?4, 0);",
@@ -209,4 +203,41 @@ pub fn delete_task(filename: &Path, todo_id: u32) -> Result<(), Error> {
     } else {
         Ok(())
     }
+}
+
+pub fn dbget_priority_id(db: &Connection, priority: &str) -> Result<u32, Error> {
+    trace!("get priority id ({})", priority);
+    let priority_id: u32 = db.query_row(
+        "SELECT id
+        FROM priority
+        WHERE descr = ?1;",
+        &[&priority],
+        |row| row.get(0),
+    )?;
+    Ok(priority_id)
+}
+
+pub fn get_priority_id(filename: &Path, priority: &str) -> Result<u32, Error> {
+    let db = get_db(filename)?;
+    dbget_priority_id(&db, priority)
+}
+
+pub fn dbset_priority(db: &Connection, todo_id: u32, priority: &str) -> Result<(), Error> {
+    let priority_id = dbget_priority_id(&db, priority)?;
+    let rc = db.execute(
+        "UPDATE todos
+        SET priority_id = ?1
+        WHERE id = ?2;",
+        &[&priority_id, &todo_id],
+    )?;
+    if rc != 1 {
+        Err(Error::QueryReturnedNoRows)
+    } else {
+        Ok(())
+    }
+}
+
+pub fn set_priority(filename: &Path, todo_id: u32, priority: &str) -> Result<(), Error> {
+    let db = get_db(filename)?;
+    dbset_priority(&db, todo_id, priority)
 }
