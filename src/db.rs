@@ -140,18 +140,13 @@ pub fn complete_task(filename: &Path, todo_id: u32) -> Result<(), Error> {
 
 pub fn delete_task(filename: &Path, todo_id: u32) -> Result<(), Error> {
     let db = get_db(filename)?;
-    db.execute(
+    let rc = db.execute(
         "DELETE FROM todos
         WHERE id = ?1;",
         &[&todo_id],
     )?;
-    let rc = db.execute(
-        "DELETE FROM todo_label
-        WHERE todo_id = ?1;",
-        &[&todo_id],
-    )?;
     if rc != 1 {
-        Err(Error::QueryReturnedNoRows)
+        Err(Error::StatementChangedRows(rc))
     } else {
         Ok(())
     }
