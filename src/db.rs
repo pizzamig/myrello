@@ -45,7 +45,7 @@ pub fn get_db(filename: &Path) -> Result<Connection, Error> {
     Connection::open(filename)
 }
 
-pub fn add_task(filename: &Path, descr: &str) -> Result<i32, Error> {
+pub fn add_task(filename: &Path, descr: &str) -> Result<u32, Error> {
     let db = get_db(filename)?;
     let creation_date: DateTime<Utc> = Utc::now();
     let creation_date_str = creation_date.format("%Y-%m-%d %H:%M:%S").to_string();
@@ -59,7 +59,7 @@ pub fn add_task(filename: &Path, descr: &str) -> Result<i32, Error> {
         Ok(_) => (),
         Err(e) => return Err(e),
     };
-    let new_id: i32 = db.query_row(
+    let new_id: u32 = db.query_row(
         "SELECT id
         FROM todos
         WHERE creation_date = ?1;",
@@ -69,7 +69,7 @@ pub fn add_task(filename: &Path, descr: &str) -> Result<i32, Error> {
     Ok(new_id)
 }
 
-pub fn add_labels(filename: &Path, todo_id: i32, labels: &Vec<String>) -> Result<(), Error> {
+pub fn add_labels(filename: &Path, todo_id: u32, labels: &Vec<String>) -> Result<(), Error> {
     let db = get_db(filename)?;
     for l in labels {
         let mut ll = String::from(l.trim());
@@ -119,4 +119,19 @@ pub fn dbget_labels(db: &Connection, todo_id: u32) -> Result<Vec<String>, Error>
 pub fn get_labels(filename: &Path, todo_id: u32) -> Result<Vec<String>, Error> {
     let db = get_db(filename)?;
     dbget_labels(&db, todo_id)
+}
+
+pub fn delete_task(filename: &Path, todo_id: u32) -> Result<(), Error> {
+    let db = get_db(filename)?;
+    db.execute(
+        "DELETE FROM todos
+        WHERE id = ?1;",
+        &[&todo_id],
+    )?;
+    db.execute(
+        "DELETE FROM todo_label
+        WHERE todo_id = ?1;",
+        &[&todo_id],
+    )?;
+    Ok(())
 }

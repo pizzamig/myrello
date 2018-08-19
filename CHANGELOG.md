@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - task-add: option -l to attach labels to a task
 - task-add-label: new command to add a label to an existing task
 - show: implement -l option, to show labels as well
+- task-delete: new command to delete a task
 
 ## [0.1.0] 2018-08-18
 ### Added

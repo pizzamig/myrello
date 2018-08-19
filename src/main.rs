@@ -101,7 +101,14 @@ enum TaskCmd {
         labels: Vec<String>,
         /// The task description
         #[structopt(short = "t", long = "task")]
-        task: i32,
+        task: u32,
+    },
+    /// Delete a task
+    #[structopt(name = "delete")]
+    Delete {
+        /// The task description
+        #[structopt(short = "t", long = "task")]
+        task: u32,
     },
 }
 
@@ -153,6 +160,10 @@ fn main() -> Result<(), Error> {
                     error!("You have to specify at least one label");
                 }
                 db::add_labels(&dbfile, task, &labels)?;
+            }
+            TaskCmd::Delete { task } => {
+                info!("Delete task {}", task);
+                db::delete_task(&dbfile, task)?;
             }
         },
         Cmd::Show(showopt) => {
