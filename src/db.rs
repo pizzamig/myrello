@@ -199,6 +199,11 @@ pub fn delete_task(filename: &Path, todo_id: u32) -> Result<(), Error> {
         WHERE id = ?1;",
         &[&todo_id],
     )?;
+    db.execute(
+        "DELETE FROM todo_label
+        WHERE todo_id = ?1;",
+        &[&todo_id],
+    )?;
     if rc != 1 {
         Err(Error::StatementChangedRows(rc))
     } else {
