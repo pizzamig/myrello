@@ -87,7 +87,7 @@ enum TaskCmd {
     #[structopt(name = "add")]
     Add {
         /// attach one or more label to the task
-        #[structopt(short = "l", long = "label")]
+        #[structopt(short = "l", long = "label", raw(number_of_values = "1"))]
         labels: Vec<String>,
         /// The task description
         #[structopt()]
@@ -97,7 +97,7 @@ enum TaskCmd {
     #[structopt(name = "add-label")]
     AddLabel {
         /// attach one or more label to the task
-        #[structopt(short = "l", long = "label")]
+        #[structopt(short = "l", long = "label", raw(number_of_values = "1"))]
         labels: Vec<String>,
         /// The task description
         #[structopt(short = "t", long = "task")]
