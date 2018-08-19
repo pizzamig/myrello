@@ -69,7 +69,7 @@ pub fn add_task(filename: &Path, descr: &str) -> Result<u32, Error> {
     Ok(new_id)
 }
 
-pub fn add_labels(filename: &Path, todo_id: u32, labels: &Vec<String>) -> Result<(), Error> {
+pub fn add_labels(filename: &Path, todo_id: u32, labels: &[String]) -> Result<(), Error> {
     let db = get_db(filename)?;
     for l in labels {
         let mut ll = String::from(l.trim());
@@ -145,10 +145,14 @@ pub fn delete_task(filename: &Path, todo_id: u32) -> Result<(), Error> {
         WHERE id = ?1;",
         &[&todo_id],
     )?;
-    db.execute(
+    let rc = db.execute(
         "DELETE FROM todo_label
         WHERE todo_id = ?1;",
         &[&todo_id],
     )?;
-    Ok(())
+    if rc != 1 {
+        Err(Error::QueryReturnedNoRows)
+    } else {
+        Ok(())
+    }
 }

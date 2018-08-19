@@ -1,9 +1,3 @@
-//enum Status {
-//    Todo,
-//    InProgress,
-//    Done,
-//    Block,
-//}
 use super::db;
 use prettytable::Table;
 use std::path::Path;
@@ -14,14 +8,14 @@ pub struct Task {
     pub descr: String,
 }
 
-#[derive(Debug)]
-pub struct TaskLabel {
-    pub id: u32,
-    pub descr: String,
-    pub labels: Vec<String>,
-}
+//#[derive(Debug)]
+//pub struct TaskLabel {
+//    pub id: u32,
+//    pub descr: String,
+//    pub labels: Vec<String>,
+//}
 
-pub fn show_tasks(tasks: &Vec<Task>) {
+pub fn show_tasks(tasks: &[Task]) {
     let mut table = Table::new();
     table.set_titles(row!["Id", "Description"]);
     for t in tasks {
@@ -30,7 +24,7 @@ pub fn show_tasks(tasks: &Vec<Task>) {
     table.printstd();
 }
 
-pub fn show_tasks_labels(filename: &Path, tasks: &Vec<Task>) {
+pub fn show_tasks_labels(filename: &Path, tasks: &[Task]) {
     let mut table = Table::new();
     table.set_titles(row!["Id", "Labels", "Description"]);
     for t in tasks {

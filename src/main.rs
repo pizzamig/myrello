@@ -126,7 +126,7 @@ fn main() -> Result<(), Error> {
     let dbfile = match opt.dbfile {
         Some(x) => x,
         None => {
-            let default_dir = dirs::data_dir().unwrap_or(PathBuf::from("./"));
+            let default_dir = dirs::data_dir().unwrap_or_else(|| PathBuf::from("./"));
             if !default_dir.exists() {
                 trace!("creating not existing default directory {:?}", default_dir);
                 mkdirp::mkdirp(&default_dir)?;
