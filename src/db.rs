@@ -121,6 +121,23 @@ pub fn get_labels(filename: &Path, todo_id: u32) -> Result<Vec<String>, Error> {
     dbget_labels(&db, todo_id)
 }
 
+pub fn complete_task(filename: &Path, todo_id: u32) -> Result<(), Error> {
+    let db = get_db(filename)?;
+    let completion_date: DateTime<Utc> = Utc::now();
+    let completion_date_str = completion_date.format("%Y-%m-%d %H:%M:%S").to_string();
+    let rc = db.execute(
+        "UPDATE todos
+        SET completion_date = ?1
+        WHERE id = ?2;",
+        &[&completion_date_str, &todo_id],
+    )?;
+    if rc != 1 {
+        Err(Error::QueryReturnedNoRows)
+    } else {
+        Ok(())
+    }
+}
+
 pub fn delete_task(filename: &Path, todo_id: u32) -> Result<(), Error> {
     let db = get_db(filename)?;
     db.execute(

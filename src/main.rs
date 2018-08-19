@@ -103,10 +103,17 @@ enum TaskCmd {
         #[structopt(short = "t", long = "task")]
         task: u32,
     },
+    /// Close a task
+    #[structopt(name = "done")]
+    Done {
+        /// The task id
+        #[structopt(short = "t", long = "task")]
+        task: u32,
+    },
     /// Delete a task
     #[structopt(name = "delete")]
     Delete {
-        /// The task description
+        /// The task id
         #[structopt(short = "t", long = "task")]
         task: u32,
     },
@@ -160,6 +167,10 @@ fn main() -> Result<(), Error> {
                     error!("You have to specify at least one label");
                 }
                 db::add_labels(&dbfile, task, &labels)?;
+            }
+            TaskCmd::Done { task } => {
+                info!("Completed task {}", task);
+                db::complete_task(&dbfile, task)?;
             }
             TaskCmd::Delete { task } => {
                 info!("Delete task {}", task);
