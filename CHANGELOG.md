@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - task-delete: new command to delete a task
 - task-delete: new command to complete a task
 
+### Changed
+- the db schema was extended. No migration instruction provided
+  priority, story points and status field were added
+
 ## [0.1.0] 2018-08-18
 ### Added
 - database-init: initialize the sqlite database
