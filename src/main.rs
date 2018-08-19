@@ -1,4 +1,5 @@
 extern crate clap_verbosity_flag;
+#[macro_use]
 extern crate structopt;
 #[macro_use]
 extern crate log;
