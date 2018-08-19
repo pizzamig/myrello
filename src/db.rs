@@ -41,7 +41,7 @@ pub fn init(filename: &Path) -> Result<Connection, Error> {
     Ok(c)
 }
 
-fn get_db(filename: &Path) -> Result<Connection, Error> {
+pub fn get_db(filename: &Path) -> Result<Connection, Error> {
     Connection::open(filename)
 }
 
@@ -86,8 +86,7 @@ pub fn add_labels(filename: &Path, todo_id: i32, labels: &Vec<String>) -> Result
     Ok(())
 }
 
-pub fn get_open_tasks(filename: &Path) -> Result<Vec<task::Task>, Error> {
-    let db = get_db(filename)?;
+pub fn dbget_open_tasks(db: &Connection) -> Result<Vec<task::Task>, Error> {
     let mut stmt = db.prepare(
         "SELECT id,descr
         FROM todos
@@ -99,4 +98,25 @@ pub fn get_open_tasks(filename: &Path) -> Result<Vec<task::Task>, Error> {
     })?;
     let rc = query_iter.map(|x| x.unwrap()).collect();
     Ok(rc)
+}
+
+pub fn get_open_tasks(filename: &Path) -> Result<Vec<task::Task>, Error> {
+    let db = get_db(filename)?;
+    dbget_open_tasks(&db)
+}
+
+pub fn dbget_labels(db: &Connection, todo_id: u32) -> Result<Vec<String>, Error> {
+    let mut stmt = db.prepare(
+        "SELECT label
+        FROM todo_label
+        WHERE todo_id = ?1;",
+    )?;
+    let query_iter = stmt.query_map(&[&todo_id], |row| row.get(0))?;
+    let labels = query_iter.map(|x| x.unwrap()).collect();
+    Ok(labels)
+}
+
+pub fn get_labels(filename: &Path, todo_id: u32) -> Result<Vec<String>, Error> {
+    let db = get_db(filename)?;
+    dbget_labels(&db, todo_id)
 }

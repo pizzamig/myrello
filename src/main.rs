@@ -9,6 +9,8 @@ extern crate failure;
 //extern crate failure_derive;
 extern crate chrono;
 extern crate mkdirp;
+#[macro_use]
+extern crate prettytable;
 extern crate rusqlite;
 
 mod db;
@@ -39,7 +41,7 @@ struct Opt {
 enum Cmd {
     /// Show all
     #[structopt(name = "show")]
-    Show,
+    Show(ShowOpt),
     /// Work on the task database
     #[structopt(name = "database")]
     Db(DbOpt),
@@ -58,6 +60,14 @@ struct DbOpt {
 struct TaskOpt {
     #[structopt(subcommand)]
     cmd: TaskCmd,
+}
+
+#[derive(Debug, StructOpt)]
+struct ShowOpt {
+    #[structopt(short = "a", long = "all")]
+    all: bool,
+    #[structopt(short = "l", long = "labels")]
+    labels: bool,
 }
 
 #[derive(Debug, StructOpt)]
@@ -145,10 +155,13 @@ fn main() -> Result<(), Error> {
                 db::add_labels(&dbfile, task, &labels)?;
             }
         },
-        Cmd::Show => {
+        Cmd::Show(showopt) => {
             let tasks = db::get_open_tasks(&dbfile)?;
-            for t in tasks {
-                println!("{}\t{}", t.id, t.descr);
+            if showopt.all {
+            } else if showopt.labels {
+                task::show_tasks_labels(&dbfile, &tasks);
+            } else {
+                task::show_tasks(&tasks);
             }
         }
     };
