@@ -96,7 +96,7 @@ enum TaskCmd {
         #[structopt()]
         descr: Vec<String>,
     },
-    /// Add a lable to an existing task
+    /// Add a label to an existing task
     #[structopt(name = "add-label")]
     AddLabel {
         /// attach one or more label to the task
@@ -106,11 +106,22 @@ enum TaskCmd {
         #[structopt(short = "t", long = "task")]
         task: u32,
     },
+    /// Set the priority of a task
     #[structopt(name = "priority")]
     Priority {
         /// the priority level
         #[structopt(short = "p", long = "priority")]
         priority: String,
+        /// The task description
+        #[structopt(short = "t", long = "task")]
+        task: u32,
+    },
+    /// Set the status of a task
+    #[structopt(name = "status")]
+    Status {
+        /// the priority level
+        #[structopt(short = "s", long = "status")]
+        status: String,
         /// The task description
         #[structopt(short = "t", long = "task")]
         task: u32,
@@ -193,9 +204,17 @@ fn main() -> Result<(), Error> {
             TaskCmd::Priority { priority, task } => {
                 db::set_priority(&dbfile, task, &priority)?;
             }
+            TaskCmd::Status { status, task } => {
+                if status == "done" {
+                    error!("To make a task as done, please use the command task-done");
+                } else {
+                    db::set_status(&dbfile, task, &status)?;
+                }
+            }
             TaskCmd::Done { task } => {
                 info!("Completed task {}", task);
                 db::complete_task(&dbfile, task)?;
+                db::set_status(&dbfile, task, "done")?;
             }
             TaskCmd::Delete { task } => {
                 info!("Delete task {}", task);

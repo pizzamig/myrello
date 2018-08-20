@@ -217,6 +217,17 @@ pub fn dbget_priority_id(db: &Connection, priority: &str) -> Result<u32, Error> 
     Ok(priority_id)
 }
 
+pub fn dbget_status_id(db: &Connection, status: &str) -> Result<u32, Error> {
+    trace!("get status id ({})", status);
+    let status_id: u32 = db.query_row(
+        "SELECT id
+        FROM status
+        WHERE descr = ?1;",
+        &[&status],
+        |row| row.get(0),
+    )?;
+    Ok(status_id)
+}
 pub fn get_priority_id(filename: &Path, priority: &str) -> Result<u32, Error> {
     let db = get_db(filename)?;
     dbget_priority_id(&db, priority)
@@ -240,4 +251,24 @@ pub fn dbset_priority(db: &Connection, todo_id: u32, priority: &str) -> Result<(
 pub fn set_priority(filename: &Path, todo_id: u32, priority: &str) -> Result<(), Error> {
     let db = get_db(filename)?;
     dbset_priority(&db, todo_id, priority)
+}
+
+pub fn dbset_status(db: &Connection, todo_id: u32, status: &str) -> Result<(), Error> {
+    let status_id = dbget_status_id(&db, status)?;
+    let rc = db.execute(
+        "UPDATE todos
+        SET status_id = ?1
+        WHERE id = ?2;",
+        &[&status_id, &todo_id],
+    )?;
+    if rc != 1 {
+        Err(Error::QueryReturnedNoRows)
+    } else {
+        Ok(())
+    }
+}
+
+pub fn set_status(filename: &Path, todo_id: u32, status: &str) -> Result<(), Error> {
+    let db = get_db(filename)?;
+    dbset_status(&db, todo_id, status)
 }

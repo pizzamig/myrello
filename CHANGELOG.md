@@ -10,7 +10,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - task-add-label: new command to add a label to an existing task
 - show: implement -l option, to show labels as well
 - task-delete: new command to delete a task
-- task-delete: new command to complete a task
+- task-done: new command to complete a task
+- task-status: new command to change status
 
 ### Changed
 - the db schema was extended. No migration instruction provided
