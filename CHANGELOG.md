@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - task-delete: new command to delete a task
 - task-done: new command to complete a task
 - task-status: new command to change status
+- completion: new command to generate Zsh autocompletion function
 
 ### Changed
 - the db schema was extended. No migration instruction provided
