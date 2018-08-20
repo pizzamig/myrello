@@ -19,6 +19,7 @@ mod task;
 use clap_verbosity_flag::Verbosity;
 use failure::Error;
 use std::path::PathBuf;
+use structopt::clap::Shell;
 use structopt::StructOpt;
 
 //#[derive(Debug, Fail)]
@@ -48,6 +49,9 @@ enum Cmd {
     /// Work on tasks/todos
     #[structopt(name = "task")]
     Task(TaskOpt),
+    /// Generate autocompletion for zsh
+    #[structopt(name = "completion")]
+    Completion,
 }
 
 #[derive(Debug, StructOpt)]
@@ -159,6 +163,9 @@ fn main() -> Result<(), Error> {
     };
     trace!("Using {:?} as database", dbfile);
     match opt.cmd {
+        Cmd::Completion => {
+            Opt::clap().gen_completions_to("myrello", Shell::Zsh, &mut std::io::stdout());
+        }
         Cmd::Db(dbcmd) => match dbcmd.cmd {
             DbCmd::Init { force } => {
                 if force {
