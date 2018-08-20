@@ -70,8 +70,8 @@ struct TaskOpt {
 struct ShowOpt {
     #[structopt(short = "a", long = "all")]
     all: bool,
-    #[structopt(short = "l", long = "labels")]
-    labels: bool,
+    #[structopt(short = "l", long = "label")]
+    label: Option<String>,
 }
 
 #[derive(Debug, StructOpt)]
@@ -231,10 +231,10 @@ fn main() -> Result<(), Error> {
         Cmd::Show(showopt) => {
             let tasks = db::get_open_tasks(&dbfile)?;
             if showopt.all {
-            } else if showopt.labels {
-                task::show_tasks_labels(&dbfile, &tasks);
+            } else if let Some(label) = showopt.label {
+                task::show_tasks_label(&dbfile, &tasks, &label);
             } else {
-                task::show_tasks(&tasks);
+                task::show_tasks(&dbfile, &tasks);
             }
         }
     };
