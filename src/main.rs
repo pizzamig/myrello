@@ -110,6 +110,15 @@ enum TaskCmd {
         #[structopt(short = "t", long = "task")]
         task: u32,
     },
+    /// Set a new description for the task
+    Edit {
+        /// The task description
+        #[structopt(short = "t", long = "task")]
+        task: u32,
+        /// The task description
+        #[structopt()]
+        descr: Vec<String>,
+    },
     /// Set the priority of a task
     #[structopt(name = "priority")]
     Priority {
@@ -207,6 +216,15 @@ fn main() -> Result<(), Error> {
                     error!("You have to specify at least one label");
                 }
                 db::add_labels(&dbfile, task, &labels)?;
+            }
+            TaskCmd::Edit { task, descr } => {
+                let mut text = String::new();
+                for x in descr {
+                    text.push_str(&x);
+                    text.push(' ');
+                }
+                info!("edit the task with a new description {}", text);
+                db::set_descr(&dbfile, task, &text)?;
             }
             TaskCmd::Priority { priority, task } => {
                 db::set_priority(&dbfile, task, &priority)?;

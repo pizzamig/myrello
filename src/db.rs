@@ -272,3 +272,22 @@ pub fn set_status(filename: &Path, todo_id: u32, status: &str) -> Result<(), Err
     let db = get_db(filename)?;
     dbset_status(&db, todo_id, status)
 }
+
+pub fn dbset_descr(db: &Connection, todo_id: u32, descr: &str) -> Result<(), Error> {
+    let rc = db.execute(
+        "UPDATE todos
+        SET descr = ?1
+        WHERE id = ?2;",
+        &[&descr, &todo_id],
+    )?;
+    if rc != 1 {
+        Err(Error::QueryReturnedNoRows)
+    } else {
+        Ok(())
+    }
+}
+
+pub fn set_descr(filename: &Path, todo_id: u32, descr: &str) -> Result<(), Error> {
+    let db = get_db(filename)?;
+    dbset_descr(&db, todo_id, descr)
+}
