@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 ### Added
 - task-edit: to change/edit the description of a task
+
 ### Changed
 - show: labels are always showed; -l option is now used as a filter and accept an argument
 

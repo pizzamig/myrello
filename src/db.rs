@@ -136,7 +136,8 @@ pub fn dbget_open_tasks(db: &Connection) -> Result<Vec<task::Task>, Error> {
         FROM todos t
         LEFT JOIN priority p ON p.id = t.priority_id
         LEFT JOIN status s ON s.id = t.status_id
-        WHERE completion_date IS NULL;",
+        WHERE completion_date IS NULL
+        ORDER BY t.priority_id ASC;",
     )?;
     let query_iter = stmt.query_map(&[], |row| task::Task {
         id: row.get(0),

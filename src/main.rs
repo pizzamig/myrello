@@ -111,6 +111,7 @@ enum TaskCmd {
         task: u32,
     },
     /// Set a new description for the task
+    #[structopt(name = "edit")]
     Edit {
         /// The task description
         #[structopt(short = "t", long = "task")]
