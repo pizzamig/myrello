@@ -73,6 +73,8 @@ struct ShowOpt {
     all: bool,
     #[structopt(short = "l", long = "label")]
     label: Option<String>,
+    #[structopt(short = "r", long = "reference")]
+    reference: bool,
 }
 
 #[derive(Debug, StructOpt)]
@@ -94,6 +96,9 @@ enum TaskCmd {
         /// attach one or more label to the task
         #[structopt(short = "l", long = "label", raw(number_of_values = "1"))]
         labels: Vec<String>,
+        /// set a reference to the task
+        #[structopt(short = "r", long = "reference")]
+        reference: Option<String>,
         /// set a priority
         #[structopt(short = "p", long = "priority")]
         priority: Option<String>,
@@ -123,6 +128,9 @@ enum TaskCmd {
         /// the status level
         #[structopt(short = "s", long = "status")]
         status: Option<String>,
+        /// set a reference to the task
+        #[structopt(short = "r", long = "reference")]
+        reference: Option<String>,
         /// The task description
         #[structopt()]
         descr: Vec<String>,
@@ -188,6 +196,7 @@ fn main() -> Result<(), Error> {
             TaskCmd::New {
                 labels,
                 priority,
+                reference,
                 descr,
             } => {
                 let mut text = String::new();
@@ -205,6 +214,10 @@ fn main() -> Result<(), Error> {
                     debug!("set priority {}", priority_str);
                     db::set_priority(&dbfile, new_id, &priority_str)?;
                 }
+                if let Some(ref_str) = reference {
+                    debug!("set reference {}", ref_str);
+                    db::set_reference(&dbfile, new_id, &ref_str)?;
+                }
                 println!("Create a new task, with id {}", new_id);
             }
             TaskCmd::AddLabel { labels, task } => {
@@ -217,6 +230,7 @@ fn main() -> Result<(), Error> {
             TaskCmd::Edit {
                 task,
                 priority,
+                reference,
                 status,
                 descr,
             } => {
@@ -234,6 +248,10 @@ fn main() -> Result<(), Error> {
                     }
                     if let Some(priority) = priority {
                         db::set_priority(&dbfile, task, &priority)?;
+                    }
+                    if let Some(ref_str) = reference {
+                        debug!("set reference {}", ref_str);
+                        db::set_reference(&dbfile, task, &ref_str)?;
                     }
                     if let Some(status) = status {
                         if status == "done" {
@@ -270,9 +288,9 @@ fn main() -> Result<(), Error> {
             let tasks = db::get_open_tasks(&dbfile)?;
             if showopt.all {
             } else if let Some(label) = showopt.label {
-                task::show_tasks_label(&dbfile, &tasks, &label);
+                task::show_tasks_label(&dbfile, &tasks, &label, showopt.reference);
             } else {
-                task::show_tasks(&dbfile, &tasks);
+                task::show_tasks(&dbfile, &tasks, showopt.reference);
             }
         }
     };

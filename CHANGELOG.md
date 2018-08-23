@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 ### Added
+- add support to task references, in task-new and task-edit
+- show: add -r option to toggle references 
 - task-edit: to change/edit every attribute of a task
 - task-prio: to increment the priority of a task
 - task-block: to mark a task as blocked (status: block)
@@ -14,6 +16,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
 - show: labels are always showed; -l option is now used as a filter and accept an argument
 - task-new: task-add is not called task-new
+- reference support changed the database schema
 
 ### Removed
 - task-status: superseeded by task-start, task-block, task-done and task-edit

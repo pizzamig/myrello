@@ -9,9 +9,10 @@ pub fn init(filename: &Path) -> Result<(), Error> {
         "CREATE TABLE todos ( 
         id INTEGER PRIMARY KEY ASC,
         creation_date datetime,
-        descr varchar(1024),
+        descr varchar(128),
         priority_id INTEGER,
         status_id INTEGER,
+        refs_id INTEGER,
         story_points INTEGER,
         completion_date datetime );",
         &[],
@@ -38,6 +39,12 @@ pub fn init(filename: &Path) -> Result<(), Error> {
         todo_id INTEGER,
         label varchar(32),
         PRIMARY KEY (todo_id,label) );",
+        &[],
+    )?;
+    c.execute(
+        "CREATE TABLE refs (
+        id INTEGER PRIMARY KEY ASC,
+        descr varchar(1024));",
         &[],
     )?;
     c.execute(
@@ -86,7 +93,7 @@ pub fn add_task(filename: &Path, descr: &str) -> Result<u32, Error> {
     let creation_date: DateTime<Utc> = Utc::now();
     let creation_date_str = creation_date.format("%Y-%m-%d %H:%M:%S").to_string();
     let mut newdescr = String::from(descr.trim_right());
-    newdescr.truncate(1024);
+    newdescr.truncate(128);
     let status: u32 = db.query_row(
         "SELECT id
         FROM status
@@ -168,6 +175,30 @@ pub fn dbget_labels(db: &Connection, todo_id: u32) -> Result<Vec<String>, Error>
 pub fn get_labels(filename: &Path, todo_id: u32) -> Result<Vec<String>, Error> {
     let db = get_db(filename)?;
     dbget_labels(&db, todo_id)
+}
+
+pub fn get_refs(filename: &Path, todo_id: u32) -> Result<String, Error> {
+    let db = get_db(filename)?;
+    trace!("Query the refs_id from todos");
+    let refs_id: u32 = db.query_row(
+        "SELECT refs_id
+        FROM todos
+        WHERE id = ?1;",
+        &[&todo_id],
+        |row| row.get_checked(0).unwrap_or(0),
+    )?;
+    if refs_id == 0 {
+        return Ok(String::new());
+    }
+    trace!("Query the descr from refs");
+    let refs: String = db.query_row(
+        "SELECT descr
+        FROM refs
+        WHERE id = ?1;",
+        &[&refs_id],
+        |row| row.get(0),
+    )?;
+    Ok(refs)
 }
 
 pub fn complete_task(filename: &Path, todo_id: u32) -> Result<(), Error> {
@@ -275,11 +306,13 @@ pub fn set_status(filename: &Path, todo_id: u32, status: &str) -> Result<(), Err
 }
 
 pub fn dbset_descr(db: &Connection, todo_id: u32, descr: &str) -> Result<(), Error> {
+    let mut newdescr = String::from(descr.trim_right());
+    newdescr.truncate(128);
     let rc = db.execute(
         "UPDATE todos
         SET descr = ?1
         WHERE id = ?2;",
-        &[&descr, &todo_id],
+        &[&newdescr, &todo_id],
     )?;
     if rc != 1 {
         Err(Error::QueryReturnedNoRows)
@@ -305,8 +338,8 @@ pub fn dbincrease_priority(db: &Connection, todo_id: u32) -> Result<(), Error> {
         let priority_id = priority_id - 1;
         let rc = db.execute(
             "UPDATE todos
-        SET priority_id = ?1
-        WHERE id = ?2;",
+            SET priority_id = ?1
+            WHERE id = ?2;",
             &[&priority_id, &todo_id],
         )?;
         if rc != 1 {
@@ -322,4 +355,40 @@ pub fn dbincrease_priority(db: &Connection, todo_id: u32) -> Result<(), Error> {
 pub fn increase_priority(filename: &Path, todo_id: u32) -> Result<(), Error> {
     let db = get_db(filename)?;
     dbincrease_priority(&db, todo_id)
+}
+
+pub fn dbset_reference(db: &Connection, todo_id: u32, reference: &str) -> Result<(), Error> {
+    let mut newref = String::from(reference.trim_right());
+    newref.truncate(1024);
+    let rc = db.execute(
+        "INSERT INTO refs (descr)
+        VALUES (?1);",
+        &[&newref],
+    )?;
+    if rc != 1 {
+        return Err(Error::QueryReturnedNoRows);
+    }
+    let ref_id: u32 = db.query_row(
+        "SELECT id
+        FROM refs
+        WHERE descr = ?1;",
+        &[&newref],
+        |row| row.get(0),
+    )?;
+    let rc = db.execute(
+        "UPDATE todos
+        SET refs_id = ?1
+        WHERE id = ?2;",
+        &[&ref_id, &todo_id],
+    )?;
+    if rc != 1 {
+        Err(Error::QueryReturnedNoRows)
+    } else {
+        Ok(())
+    }
+}
+
+pub fn set_reference(filename: &Path, todo_id: u32, reference: &str) -> Result<(), Error> {
+    let db = get_db(filename)?;
+    dbset_reference(&db, todo_id, reference)
 }
