@@ -32,7 +32,8 @@ use structopt::StructOpt;
 struct Opt {
     #[structopt(flatten)]
     verbose: Verbosity,
-    #[structopt(short = "d", long = "db", parse(from_os_str))]
+    /// Specify the database file you want to use
+    #[structopt(short = "d", long = "db", parse(from_os_str), raw(global = "true"))]
     dbfile: Option<PathBuf>,
     #[structopt(subcommand)]
     cmd: Cmd,
@@ -87,9 +88,9 @@ enum DbCmd {
 
 #[derive(Debug, StructOpt)]
 enum TaskCmd {
-    /// Add a task initialization
-    #[structopt(name = "add")]
-    Add {
+    /// Create a new task
+    #[structopt(name = "new")]
+    New {
         /// attach one or more label to the task
         #[structopt(short = "l", long = "label", raw(number_of_values = "1"))]
         labels: Vec<String>,
@@ -97,7 +98,7 @@ enum TaskCmd {
         #[structopt(short = "p", long = "priority")]
         priority: Option<String>,
         /// The task description
-        #[structopt()]
+        #[structopt(raw(required = "true"))]
         descr: Vec<String>,
     },
     /// Add a label to an existing task
@@ -116,44 +117,38 @@ enum TaskCmd {
         /// The task description
         #[structopt(short = "t", long = "task")]
         task: u32,
+        /// the priority level
+        #[structopt(short = "p", long = "priority")]
+        priority: Option<String>,
+        /// the status level
+        #[structopt(short = "s", long = "status")]
+        status: Option<String>,
         /// The task description
         #[structopt()]
         descr: Vec<String>,
     },
-    /// Set the priority of a task
-    #[structopt(name = "priority")]
-    Priority {
-        /// the priority level
-        #[structopt(short = "p", long = "priority")]
-        priority: String,
-        /// The task description
-        #[structopt(short = "t", long = "task")]
-        task: u32,
-    },
-    /// Set the status of a task
-    #[structopt(name = "status")]
-    Status {
-        /// the priority level
-        #[structopt(short = "s", long = "status")]
-        status: String,
-        /// The task description
-        #[structopt(short = "t", long = "task")]
-        task: u32,
-    },
     /// Close a task
     #[structopt(name = "done")]
-    Done {
-        /// The task id
-        #[structopt(short = "t", long = "task")]
-        task: u32,
-    },
+    Done(OptTaskOnly),
+    /// Start to work on a task
+    #[structopt(name = "start")]
+    Start(OptTaskOnly),
+    /// Mark the task as blocked
+    #[structopt(name = "block")]
+    Block(OptTaskOnly),
     /// Delete a task
     #[structopt(name = "delete")]
-    Delete {
-        /// The task id
-        #[structopt(short = "t", long = "task")]
-        task: u32,
-    },
+    Delete(OptTaskOnly),
+    /// Increase the priority of a task
+    #[structopt(name = "prio")]
+    Prio(OptTaskOnly),
+}
+
+#[derive(Debug, StructOpt)]
+struct OptTaskOnly {
+    /// The task id
+    #[structopt(short = "t", long = "task")]
+    task_id: u32,
 }
 
 fn main() -> Result<(), Error> {
@@ -190,7 +185,7 @@ fn main() -> Result<(), Error> {
             }
         },
         Cmd::Task(taskcmd) => match taskcmd.cmd {
-            TaskCmd::Add {
+            TaskCmd::New {
                 labels,
                 priority,
                 descr,
@@ -202,7 +197,6 @@ fn main() -> Result<(), Error> {
                 }
                 info!("add a task with description {}", text);
                 let new_id = db::add_task(&dbfile, &text)?;
-                info!("task has id {}", new_id);
                 if !labels.is_empty() {
                     debug!("set labels");
                     db::add_labels(&dbfile, new_id, &labels)?;
@@ -211,40 +205,65 @@ fn main() -> Result<(), Error> {
                     debug!("set priority {}", priority_str);
                     db::set_priority(&dbfile, new_id, &priority_str)?;
                 }
+                println!("Create a new task, with id {}", new_id);
             }
             TaskCmd::AddLabel { labels, task } => {
                 if labels.is_empty() {
                     error!("You have to specify at least one label");
-                }
-                db::add_labels(&dbfile, task, &labels)?;
-            }
-            TaskCmd::Edit { task, descr } => {
-                let mut text = String::new();
-                for x in descr {
-                    text.push_str(&x);
-                    text.push(' ');
-                }
-                info!("edit the task with a new description {}", text);
-                db::set_descr(&dbfile, task, &text)?;
-            }
-            TaskCmd::Priority { priority, task } => {
-                db::set_priority(&dbfile, task, &priority)?;
-            }
-            TaskCmd::Status { status, task } => {
-                if status == "done" {
-                    error!("To make a task as done, please use the command task-done");
                 } else {
-                    db::set_status(&dbfile, task, &status)?;
+                    db::add_labels(&dbfile, task, &labels)?;
                 }
             }
-            TaskCmd::Done { task } => {
-                info!("Completed task {}", task);
-                db::complete_task(&dbfile, task)?;
-                db::set_status(&dbfile, task, "done")?;
+            TaskCmd::Edit {
+                task,
+                priority,
+                status,
+                descr,
+            } => {
+                let mut text = String::new();
+                if priority.is_none() && status.is_none() && descr.is_empty() {
+                    error!("You have to specify at least on attribute you want to edit");
+                } else {
+                    if !descr.is_empty() {
+                        for x in descr {
+                            text.push_str(&x);
+                            text.push(' ');
+                            info!("edit the task with a new description {}", text);
+                            db::set_descr(&dbfile, task, &text)?;
+                        }
+                    }
+                    if let Some(priority) = priority {
+                        db::set_priority(&dbfile, task, &priority)?;
+                    }
+                    if let Some(status) = status {
+                        if status == "done" {
+                            warn!("To make a task as done, please use the command task-done");
+                            db::complete_task(&dbfile, task)?;
+                        }
+                        db::set_status(&dbfile, task, &status)?;
+                    }
+                }
             }
-            TaskCmd::Delete { task } => {
-                info!("Delete task {}", task);
-                db::delete_task(&dbfile, task)?;
+            TaskCmd::Start(task) => {
+                info!("Start task {}", task.task_id);
+                db::set_status(&dbfile, task.task_id, "in_progress")?;
+            }
+            TaskCmd::Block(task) => {
+                info!("Block task {}", task.task_id);
+                db::set_status(&dbfile, task.task_id, "block")?;
+            }
+            TaskCmd::Done(task) => {
+                info!("Completed task {}", task.task_id);
+                db::complete_task(&dbfile, task.task_id)?;
+                db::set_status(&dbfile, task.task_id, "done")?;
+            }
+            TaskCmd::Delete(task) => {
+                info!("Delete task {}", task.task_id);
+                db::delete_task(&dbfile, task.task_id)?;
+            }
+            TaskCmd::Prio(task) => {
+                info!("Increase priority of task {}", task.task_id);
+                db::increase_priority(&dbfile, task.task_id)?;
             }
         },
         Cmd::Show(showopt) => {

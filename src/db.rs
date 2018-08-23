@@ -292,3 +292,34 @@ pub fn set_descr(filename: &Path, todo_id: u32, descr: &str) -> Result<(), Error
     let db = get_db(filename)?;
     dbset_descr(&db, todo_id, descr)
 }
+
+pub fn dbincrease_priority(db: &Connection, todo_id: u32) -> Result<(), Error> {
+    let priority_id: u32 = db.query_row(
+        "SELECT priority_id
+        FROM todos
+        WHERE id = ?1;",
+        &[&todo_id],
+        |row| row.get(0),
+    )?;
+    if priority_id != 1 {
+        let priority_id = priority_id - 1;
+        let rc = db.execute(
+            "UPDATE todos
+        SET priority_id = ?1
+        WHERE id = ?2;",
+            &[&priority_id, &todo_id],
+        )?;
+        if rc != 1 {
+            Err(Error::QueryReturnedNoRows)
+        } else {
+            Ok(())
+        }
+    } else {
+        Ok(())
+    }
+}
+
+pub fn increase_priority(filename: &Path, todo_id: u32) -> Result<(), Error> {
+    let db = get_db(filename)?;
+    dbincrease_priority(&db, todo_id)
+}

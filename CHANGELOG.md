@@ -6,10 +6,18 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 ### Added
-- task-edit: to change/edit the description of a task
+- task-edit: to change/edit every attribute of a task
+- task-prio: to increment the priority of a task
+- task-block: to mark a task as blocked (status: block)
+- task-start: to start to work on a task (status: start)
 
 ### Changed
 - show: labels are always showed; -l option is now used as a filter and accept an argument
+- task-new: task-add is not called task-new
+
+### Removed
+- task-status: superseeded by task-start, task-block, task-done and task-edit
+- task-priority: superseeded by task-prio and task-edit
 
 ## [0.2.0] 2018-08-20
 ### Added
