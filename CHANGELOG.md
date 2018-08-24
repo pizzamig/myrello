@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 ### Added
+- add support to story points
 - add support to task references, in task-new and task-edit
 - show: add -r option to toggle references 
 - task-edit: to change/edit every attribute of a task

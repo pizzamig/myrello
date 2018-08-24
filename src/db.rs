@@ -326,6 +326,25 @@ pub fn set_descr(filename: &Path, todo_id: u32, descr: &str) -> Result<(), Error
     dbset_descr(&db, todo_id, descr)
 }
 
+pub fn dbset_storypoint(db: &Connection, todo_id: u32, storypoint: u32) -> Result<(), Error> {
+    let rc = db.execute(
+        "UPDATE todos
+        SET story_points = ?1
+        WHERE id = ?2;",
+        &[&storypoint, &todo_id],
+    )?;
+    if rc != 1 {
+        Err(Error::QueryReturnedNoRows)
+    } else {
+        Ok(())
+    }
+}
+
+pub fn set_storypoint(filename: &Path, todo_id: u32, storypoint: u32) -> Result<(), Error> {
+    let db = get_db(filename)?;
+    dbset_storypoint(&db, todo_id, storypoint)
+}
+
 pub fn dbincrease_priority(db: &Connection, todo_id: u32) -> Result<(), Error> {
     let priority_id: u32 = db.query_row(
         "SELECT priority_id

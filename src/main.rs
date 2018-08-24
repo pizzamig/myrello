@@ -102,6 +102,9 @@ enum TaskCmd {
         /// set a priority
         #[structopt(short = "p", long = "priority")]
         priority: Option<String>,
+        /// the story points
+        #[structopt(short = "S", long = "story-points")]
+        storypoint: Option<u32>,
         /// The task description
         #[structopt(raw(required = "true"))]
         descr: Vec<String>,
@@ -125,9 +128,12 @@ enum TaskCmd {
         /// the priority level
         #[structopt(short = "p", long = "priority")]
         priority: Option<String>,
-        /// the status level
+        /// the task' status
         #[structopt(short = "s", long = "status")]
         status: Option<String>,
+        /// the story points
+        #[structopt(short = "S", long = "story-points")]
+        storypoint: Option<u32>,
         /// set a reference to the task
         #[structopt(short = "r", long = "reference")]
         reference: Option<String>,
@@ -196,6 +202,7 @@ fn main() -> Result<(), Error> {
             TaskCmd::New {
                 labels,
                 priority,
+                storypoint,
                 reference,
                 descr,
             } => {
@@ -213,6 +220,10 @@ fn main() -> Result<(), Error> {
                 if let Some(priority_str) = priority {
                     debug!("set priority {}", priority_str);
                     db::set_priority(&dbfile, new_id, &priority_str)?;
+                }
+                if let Some(storypoint_u32) = storypoint {
+                    debug!("set storypoint {}", storypoint_u32);
+                    db::set_storypoint(&dbfile, new_id, storypoint_u32)?;
                 }
                 if let Some(ref_str) = reference {
                     debug!("set reference {}", ref_str);
@@ -232,6 +243,7 @@ fn main() -> Result<(), Error> {
                 priority,
                 reference,
                 status,
+                storypoint,
                 descr,
             } => {
                 let mut text = String::new();
@@ -248,6 +260,10 @@ fn main() -> Result<(), Error> {
                     }
                     if let Some(priority) = priority {
                         db::set_priority(&dbfile, task, &priority)?;
+                    }
+                    if let Some(storypoint_u32) = storypoint {
+                        debug!("set storypoint {}", storypoint_u32);
+                        db::set_storypoint(&dbfile, task, storypoint_u32)?;
                     }
                     if let Some(ref_str) = reference {
                         debug!("set reference {}", ref_str);
