@@ -260,6 +260,8 @@ pub fn dbget_status_id(db: &Connection, status: &str) -> Result<u32, Error> {
     )?;
     Ok(status_id)
 }
+
+#[allow(dead_code)]
 pub fn get_priority_id(filename: &Path, priority: &str) -> Result<u32, Error> {
     let db = get_db(filename)?;
     dbget_priority_id(&db, priority)

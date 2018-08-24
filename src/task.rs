@@ -54,6 +54,7 @@ pub fn show_tasks(filename: &Path, tasks: &[Task], reference: bool) {
     table.printstd();
 }
 
+#[allow(ptr_arg)]
 pub fn show_tasks_label(filename: &Path, tasks: &[Task], label: &String, reference: bool) {
     let mut table = Table::new();
     if reference {
