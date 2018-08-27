@@ -304,6 +304,8 @@ fn main() -> Result<(), Error> {
         Cmd::Show(showopt) => {
             let tasks = db::get_open_tasks(&dbfile)?;
             if showopt.all {
+                let labels = Vec::new();
+                task::show(&dbfile, &tasks, &labels, true, true);
             } else if let Some(label) = showopt.label {
                 task::show_tasks_label(&dbfile, &tasks, &label, showopt.reference);
             } else {
