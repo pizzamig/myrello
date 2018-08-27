@@ -13,7 +13,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - task-prio: to increment the priority of a task
 - task-block: to mark a task as blocked (status: block)
 - task-start: to start to work on a task (status: start)
-- show-backlog: to show all 
+- show-backlog: to show all "todo" tasks
+- show-work: to show all "in_progress" tasks
 
 ### Changed
 - show: labels are always showed; -l option is now used as a filter and accept an argument

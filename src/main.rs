@@ -95,6 +95,12 @@ enum ShowCmd {
         #[structopt(flatten)]
         show_opts: ShowCommonOpt,
     },
+    /// Show the tasks that are "in_progress"
+    #[structopt(name = "work")]
+    Work {
+        #[structopt(flatten)]
+        show_opts: ShowCommonOpt,
+    },
 }
 
 #[derive(Debug, StructOpt, Default)]
@@ -368,6 +374,17 @@ fn main() -> Result<(), Error> {
                         &tasks,
                         &showopt.show_opts.labels,
                         "todo",
+                        showopt.show_opts.reference,
+                        showopt.show_opts.hidden,
+                    );
+                }
+                ShowCmd::Work { mut show_opts } => {
+                    showopt.show_opts.merge(&mut show_opts);
+                    task::show(
+                        &dbfile,
+                        &tasks,
+                        &showopt.show_opts.labels,
+                        "in_progress",
                         showopt.show_opts.reference,
                         showopt.show_opts.hidden,
                     );
