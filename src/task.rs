@@ -25,7 +25,14 @@ fn check_label(labels: &[String], task_labels: &[String]) -> bool {
 }
 
 #[allow(ptr_arg)]
-pub fn show(filename: &Path, tasks: &[Task], label: &[String], reference: bool, storypoints: bool) {
+pub fn show(
+    filename: &Path,
+    tasks: &[Task],
+    label: &[String],
+    status: &str,
+    reference: bool,
+    storypoints: bool,
+) {
     let mut table = Table::new();
     let mut title = row![b => "Id", "Priority", "Status", "Labels", "Description"];
     if storypoints {
@@ -38,27 +45,29 @@ pub fn show(filename: &Path, tasks: &[Task], label: &[String], reference: bool, 
     for t in tasks {
         let task_labels: Vec<String> = db::get_labels(filename, t.id).unwrap_or_default();
         if check_label(label, &task_labels) {
-            let label_str = if task_labels.is_empty() {
-                trace!("No labels for task {}", t.id);
-                String::new()
-            } else {
-                let mut label_str = String::new();
-                for l in task_labels {
-                    label_str.push_str(&l);
-                    label_str.push('\n');
+            if status == "" || t.status == status {
+                let label_str = if task_labels.is_empty() {
+                    trace!("No labels for task {}", t.id);
+                    String::new()
+                } else {
+                    let mut label_str = String::new();
+                    for l in task_labels {
+                        label_str.push_str(&l);
+                        label_str.push('\n');
+                    }
+                    label_str
+                };
+                let mut row =
+                    row![ b -> &t.id.to_string(), &t.priority, &t.status, &label_str, &t.descr];
+                if storypoints {
+                    row.add_cell(Cell::new(&t.storypoints.to_string()));
                 }
-                label_str
-            };
-            let mut row =
-                row![ b -> &t.id.to_string(), &t.priority, &t.status, &label_str, &t.descr];
-            if storypoints {
-                row.add_cell(Cell::new(&t.storypoints.to_string()));
+                if reference {
+                    let reference_str = db::get_refs(filename, t.id).unwrap_or_default();
+                    row.add_cell(Cell::new(&reference_str));
+                }
+                table.add_row(row);
             }
-            if reference {
-                let reference_str = db::get_refs(filename, t.id).unwrap_or_default();
-                row.add_cell(Cell::new(&reference_str));
-            }
-            table.add_row(row);
         }
     }
     table.printstd();

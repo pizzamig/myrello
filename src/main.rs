@@ -63,25 +63,6 @@ struct DbOpt {
 }
 
 #[derive(Debug, StructOpt)]
-struct TaskOpt {
-    #[structopt(subcommand)]
-    cmd: TaskCmd,
-}
-
-#[derive(Debug, StructOpt)]
-struct ShowOpt {
-    /// Show fields normally hidden, like story points
-    #[structopt(short = "a", long = "all")]
-    all: bool,
-    /// Select one or more label as filter
-    #[structopt(short = "l", long = "label", raw(number_of_values = "1"))]
-    labels: Vec<String>,
-    /// Show references as well
-    #[structopt(short = "r", long = "reference")]
-    reference: bool,
-}
-
-#[derive(Debug, StructOpt)]
 enum DbCmd {
     /// Database initialization
     #[structopt(name = "init")]
@@ -90,6 +71,60 @@ enum DbCmd {
         #[structopt(short = "f", long = "force")]
         force: bool,
     },
+}
+
+#[derive(Debug, StructOpt)]
+struct ShowOpt {
+    #[structopt(flatten)]
+    show_opts: ShowCommonOpt,
+    #[structopt(subcommand)]
+    cmd: Option<ShowCmd>,
+}
+
+#[derive(Debug, StructOpt)]
+enum ShowCmd {
+    /// Show fields normally hidden, like story points
+    #[structopt(name = "all")]
+    All {
+        #[structopt(flatten)]
+        show_opts: ShowCommonOpt,
+    },
+    /// Show the backlog, all the tasks in todo
+    #[structopt(name = "backlog")]
+    Backlog {
+        #[structopt(flatten)]
+        show_opts: ShowCommonOpt,
+    },
+}
+
+#[derive(Debug, StructOpt, Default)]
+struct ShowCommonOpt {
+    /// Show fields normally hidden, like story points
+    #[structopt(short = "H", long = "hidden")]
+    hidden: bool,
+    /// Select one or more label as filter
+    #[structopt(short = "l", long = "label", raw(number_of_values = "1"))]
+    labels: Vec<String>,
+    /// Show references as well
+    #[structopt(short = "r", long = "reference")]
+    reference: bool,
+}
+
+impl ShowCommonOpt {
+    fn merge(&mut self, to_merge: &mut ShowCommonOpt) {
+        if to_merge.hidden {
+            self.hidden = true;
+        }
+        if to_merge.reference {
+            self.reference = true;
+        }
+        self.labels.append(&mut to_merge.labels);
+    }
+}
+#[derive(Debug, StructOpt)]
+struct TaskOpt {
+    #[structopt(subcommand)]
+    cmd: TaskCmd,
 }
 
 #[derive(Debug, StructOpt)]
@@ -172,6 +207,7 @@ struct OptTaskOnly {
 fn main() -> Result<(), Error> {
     let opt = Opt::from_args();
     opt.verbose.setup_env_logger("myrello")?;
+    trace!("opt => {:?}", opt);
     trace!("myrello begin");
     let dbfile = match opt.dbfile {
         Some(x) => x,
@@ -304,12 +340,38 @@ fn main() -> Result<(), Error> {
                 db::increase_priority(&dbfile, task.task_id)?;
             }
         },
-        Cmd::Show(showopt) => {
+        Cmd::Show(mut showopt) => {
             let tasks = db::get_open_tasks(&dbfile)?;
-            if showopt.all {
-                task::show(&dbfile, &tasks, &showopt.labels, true, true);
-            } else {
-                task::show(&dbfile, &tasks, &showopt.labels, showopt.reference, false);
+            debug!("show: showopt => {:?}", showopt);
+            let cmd = match showopt.cmd {
+                Some(x) => x,
+                None => ShowCmd::All {
+                    show_opts: Default::default(),
+                },
+            };
+            match cmd {
+                ShowCmd::All { mut show_opts } => {
+                    showopt.show_opts.merge(&mut show_opts);
+                    task::show(
+                        &dbfile,
+                        &tasks,
+                        &showopt.show_opts.labels,
+                        "",
+                        showopt.show_opts.reference,
+                        showopt.show_opts.hidden,
+                    );
+                }
+                ShowCmd::Backlog { mut show_opts } => {
+                    showopt.show_opts.merge(&mut show_opts);
+                    task::show(
+                        &dbfile,
+                        &tasks,
+                        &showopt.show_opts.labels,
+                        "todo",
+                        showopt.show_opts.reference,
+                        showopt.show_opts.hidden,
+                    );
+                }
             }
         }
     };

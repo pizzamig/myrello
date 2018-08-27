@@ -13,11 +13,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - task-prio: to increment the priority of a task
 - task-block: to mark a task as blocked (status: block)
 - task-start: to start to work on a task (status: start)
+- show-backlog: to show all 
 
 ### Changed
 - show: labels are always showed; -l option is now used as a filter and accept an argument
 - task-new: task-add is not called task-new
 - reference support changed the database schema
+- show: complete review of the show subcommand
+- show: -l can be use multiple team for finer label selection
 
 ### Removed
 - task-status: superseeded by task-start, task-block, task-done and task-edit
