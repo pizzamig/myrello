@@ -70,10 +70,13 @@ struct TaskOpt {
 
 #[derive(Debug, StructOpt)]
 struct ShowOpt {
+    /// Show fields normally hidden, like story points
     #[structopt(short = "a", long = "all")]
     all: bool,
-    #[structopt(short = "l", long = "label")]
-    label: Option<String>,
+    /// Select one or more label as filter
+    #[structopt(short = "l", long = "label", raw(number_of_values = "1"))]
+    labels: Vec<String>,
+    /// Show references as well
     #[structopt(short = "r", long = "reference")]
     reference: bool,
 }
@@ -304,12 +307,9 @@ fn main() -> Result<(), Error> {
         Cmd::Show(showopt) => {
             let tasks = db::get_open_tasks(&dbfile)?;
             if showopt.all {
-                let labels = Vec::new();
-                task::show(&dbfile, &tasks, &labels, true, true);
-            } else if let Some(label) = showopt.label {
-                task::show_tasks_label(&dbfile, &tasks, &label, showopt.reference);
+                task::show(&dbfile, &tasks, &showopt.labels, true, true);
             } else {
-                task::show_tasks(&dbfile, &tasks, showopt.reference);
+                task::show(&dbfile, &tasks, &showopt.labels, showopt.reference, false);
             }
         }
     };
