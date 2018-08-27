@@ -139,7 +139,7 @@ pub fn add_labels(filename: &Path, todo_id: u32, labels: &[String]) -> Result<()
 
 pub fn dbget_open_tasks(db: &Connection) -> Result<Vec<task::Task>, Error> {
     let mut stmt = db.prepare(
-        "SELECT t.id,t.descr,p.descr,s.descr
+        "SELECT t.id,t.descr,p.descr,s.descr,t.story_points
         FROM todos t
         LEFT JOIN priority p ON p.id = t.priority_id
         LEFT JOIN status s ON s.id = t.status_id
@@ -151,6 +151,7 @@ pub fn dbget_open_tasks(db: &Connection) -> Result<Vec<task::Task>, Error> {
         descr: row.get(1),
         priority: row.get(2),
         status: row.get(3),
+        storypoints: row.get_checked(4).unwrap_or(0),
     })?;
     let rc = query_iter.map(|x| x.unwrap()).collect();
     Ok(rc)
