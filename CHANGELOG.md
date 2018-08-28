@@ -27,6 +27,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - task-status: superseeded by task-start, task-block, task-done and task-edit
 - task-priority: superseeded by task-prio and task-edit
 
+### Fix
+- task-edit: option check was wronlgy too strict
+
 ## [0.2.0] 2018-08-20
 ### Added
 - task-add: option -l to attach labels to a task

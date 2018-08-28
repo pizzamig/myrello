@@ -293,7 +293,12 @@ fn main() -> Result<(), Error> {
                 descr,
             } => {
                 let mut text = String::new();
-                if priority.is_none() && status.is_none() && descr.is_empty() {
+                if priority.is_none()
+                    && status.is_none()
+                    && descr.is_empty()
+                    && storypoint.is_none()
+                    && reference.is_none()
+                {
                     error!("You have to specify at least on attribute you want to edit");
                 } else {
                     if !descr.is_empty() {
