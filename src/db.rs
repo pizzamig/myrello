@@ -3,8 +3,22 @@ use chrono::prelude::*;
 use rusqlite::{Connection, Error};
 use std::path::Path;
 
-pub fn init(filename: &Path) -> Result<(), Error> {
+pub fn delete_tables(db: &Connection) -> Result<(), Error> {
+    db.execute("DROP TABLE IF EXISTS todos;", &[])?;
+    db.execute("DROP TABLE IF EXISTS checklist_template;", &[])?;
+    db.execute("DROP TABLE IF EXISTS todo_checklist;", &[])?;
+    db.execute("DROP TABLE IF EXISTS todo_label;", &[])?;
+    db.execute("DROP TABLE IF EXISTS refs;", &[])?;
+    db.execute("DROP TABLE IF EXISTS status;", &[])?;
+    db.execute("DROP TABLE IF EXISTS priority;", &[])?;
+    Ok(())
+}
+
+pub fn init(filename: &Path, delete: bool) -> Result<(), Error> {
     let c = Connection::open(filename)?;
+    if delete {
+        delete_tables(&c)?
+    }
     c.execute(
         "CREATE TABLE todos ( 
         id INTEGER PRIMARY KEY ASC,
@@ -413,4 +427,72 @@ pub fn dbset_reference(db: &Connection, todo_id: u32, reference: &str) -> Result
 pub fn set_reference(filename: &Path, todo_id: u32, reference: &str) -> Result<(), Error> {
     let db = get_db(filename)?;
     dbset_reference(&db, todo_id, reference)
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use assert_fs::prelude::*;
+    use assert_fs::TempDir;
+
+    #[test]
+    fn test_init_1() {
+        let temp = TempDir::new().unwrap();
+        let dbfile = temp.child("dbtest");
+        init(dbfile.path(), false).unwrap();
+    }
+
+    #[test]
+    fn test_init_1b() {
+        let temp = TempDir::new().unwrap();
+        let dbfile = temp.child("dbtest");
+        init(dbfile.path(), true).unwrap();
+    }
+
+    #[test]
+    fn test_init_2() {
+        let temp = TempDir::new().unwrap();
+        let dbfile = temp.child("dbtest");
+        dbfile.touch().unwrap();
+        init(dbfile.path(), false).unwrap();
+    }
+
+    #[test]
+    fn test_init_2b() {
+        let temp = TempDir::new().unwrap();
+        let dbfile = temp.child("dbtest");
+        dbfile.touch().unwrap();
+        init(dbfile.path(), true).unwrap();
+    }
+
+    #[test]
+    fn test_init_3() {
+        let temp = TempDir::new().unwrap();
+        let dbfile = temp.child("dbtest");
+        dbfile.touch().unwrap();
+        init(dbfile.path(), false).unwrap();
+        // force re-initialization
+        init(dbfile.path(), true).unwrap();
+    }
+
+    #[test]
+    fn test_init_3b() {
+        let temp = TempDir::new().unwrap();
+        let dbfile = temp.child("dbtest");
+        dbfile.touch().unwrap();
+        init(dbfile.path(), true).unwrap();
+        // force re-initialization
+        init(dbfile.path(), true).unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_init_3c() {
+        let temp = TempDir::new().unwrap();
+        let dbfile = temp.child("dbtest");
+        dbfile.touch().unwrap();
+        init(dbfile.path(), true).unwrap();
+        // force re-initialization
+        init(dbfile.path(), false).unwrap();
+    }
 }

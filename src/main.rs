@@ -12,6 +12,10 @@ extern crate chrono;
 extern crate mkdirp;
 #[macro_use]
 extern crate prettytable;
+#[cfg(test)]
+extern crate assert_cmd;
+#[cfg(test)]
+extern crate assert_fs;
 extern crate rusqlite;
 
 mod db;
@@ -241,7 +245,7 @@ fn main() -> Result<(), Error> {
                 } else {
                     info!("database initialization [{:?}]", dbfile);
                 }
-                db::init(&dbfile)?;
+                db::init(&dbfile, force)?;
             }
         },
         Cmd::Task(taskcmd) => match taskcmd.cmd {

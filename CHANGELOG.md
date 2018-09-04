@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - reference support changed the database schema
 - show: complete review of the show subcommand
 - show: -l can be use multiple team for finer label selection
+- database-init: implemented option --force
 
 ### Removed
 - task-status: superseeded by task-start, task-block, task-done and task-edit
