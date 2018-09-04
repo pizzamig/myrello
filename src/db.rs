@@ -495,4 +495,62 @@ mod test {
         // force re-initialization
         init(dbfile.path(), false).unwrap();
     }
+
+    #[test]
+    fn test_get_db_1() {
+        let temp = TempDir::new().unwrap();
+        let dbfile = temp.child("dbtest");
+        dbfile.touch().unwrap();
+        init(dbfile.path(), true).unwrap();
+        get_db(dbfile.path()).unwrap();
+    }
+
+    #[test]
+    fn test_get_db_2() {
+        let temp = TempDir::new().unwrap();
+        let dbfile = temp.child("dbtest");
+        get_db(dbfile.path()).unwrap();
+    }
+
+    proptest! {
+        #[test]
+        fn test_dbget_priority_1(ref s in "urgent|high|normal|low|miserable") {
+            let temp = TempDir::new().unwrap();
+            let dbfile = temp.child("dbtest");
+            init(dbfile.path(), true).unwrap();
+            let db = get_db(dbfile.path()).unwrap();
+            dbget_priority_id(&db, s).unwrap();
+        }
+    }
+    proptest! {
+        #[test]
+        fn test_dbget_priority_2(ref s in "[^uhnlm].*") {
+            let temp = TempDir::new().unwrap();
+            let dbfile = temp.child("dbtest");
+            init(dbfile.path(), true).unwrap();
+            let db = get_db(dbfile.path()).unwrap();
+            assert_eq!( dbget_priority_id(&db, s).is_err(), true);
+        }
+    }
+
+    proptest! {
+        #[test]
+        fn test_dbget_status_1(ref s in "todo|in_progress|done|block") {
+            let temp = TempDir::new().unwrap();
+            let dbfile = temp.child("dbtest");
+            init(dbfile.path(), true).unwrap();
+            let db = get_db(dbfile.path()).unwrap();
+            dbget_status_id(&db, s).unwrap();
+        }
+    }
+    proptest! {
+        #[test]
+        fn test_dbget_status_2(ref s in "[^tidb].*") {
+            let temp = TempDir::new().unwrap();
+            let dbfile = temp.child("dbtest");
+            init(dbfile.path(), true).unwrap();
+            let db = get_db(dbfile.path()).unwrap();
+            assert_eq!( dbget_status_id(&db, s).is_err(), true);
+        }
+    }
 }

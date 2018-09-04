@@ -16,6 +16,9 @@ extern crate prettytable;
 extern crate assert_cmd;
 #[cfg(test)]
 extern crate assert_fs;
+#[cfg(test)]
+#[macro_use]
+extern crate proptest;
 extern crate rusqlite;
 
 mod db;
