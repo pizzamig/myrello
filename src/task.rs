@@ -23,7 +23,7 @@ fn check_label(labels: &[String], task_labels: &[String]) -> bool {
     }
     true
 }
-#[allow(clippy::ptr_arg)]
+#[cfg_attr(feature = "nightly" , allow(clippy::ptr_arg))]
 pub fn show(
     filename: &Path,
     tasks: &[Task],

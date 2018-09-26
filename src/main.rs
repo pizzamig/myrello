@@ -1,4 +1,4 @@
-#![feature(tool_lints)]
+#![cfg_attr(feature = "nightly", feature(tool_lints))]
 extern crate clap_verbosity_flag;
 #[allow(unused_imports)]
 #[macro_use]
