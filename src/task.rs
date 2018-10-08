@@ -1,6 +1,7 @@
 use super::db;
 use prettytable::cell::Cell;
 use prettytable::{Attr, Table};
+use std::collections::HashMap;
 use std::path::Path;
 
 #[derive(Debug)]
@@ -23,7 +24,7 @@ fn check_label(labels: &[String], task_labels: &[String]) -> bool {
     }
     true
 }
-#[cfg_attr(feature = "nightly" , allow(clippy::ptr_arg))]
+#[cfg_attr(feature = "nightly", allow(clippy::ptr_arg))]
 pub fn show(
     filename: &Path,
     tasks: &[Task],
@@ -32,6 +33,7 @@ pub fn show(
     reference: bool,
     storypoints: bool,
 ) {
+    let mut stats = HashMap::new();
     let mut table = Table::new();
     let mut title = row![b => "Id", "Priority", "Status", "Labels", "Description"];
     if storypoints {
@@ -65,7 +67,21 @@ pub fn show(
                 row.add_cell(Cell::new(&reference_str));
             }
             table.add_row(row);
+            let counter = stats.entry(t.status.as_str()).or_insert(0);
+            *counter += 1;
         }
     }
     table.printstd();
+    if status != "" {
+        println!("tasks: {}", stats.get(status).unwrap_or(&0));
+    } else {
+        let mut stattable = Table::new();
+        for st in stats.keys() {
+            let num = stats.get(st).unwrap_or(&0).to_string();
+            let mut row = row![ b -> "status", &st, b -> "tasks", num];
+            //println!("status: {}\ttasks: {}", st, stats.get(st).unwrap_or(&0));
+            stattable.add_row(row);
+        }
+        stattable.printstd();
+    }
 }
