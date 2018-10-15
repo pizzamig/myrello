@@ -28,6 +28,8 @@ mod task;
 
 use failure::Error;
 use std::path::PathBuf;
+use std::str::FromStr;
+use std::string::ToString;
 use structopt::clap::Shell;
 use structopt::StructOpt;
 use structopt_flags::LogLevel;
@@ -95,6 +97,40 @@ struct ShowOpt {
     cmd: Option<ShowCmd>,
 }
 
+#[derive(Debug)]
+pub enum TimeWindow {
+    Today,
+    Yesterday,
+    Week,
+    Month,
+}
+
+#[derive(Debug)]
+pub struct TimeWindowParseError {
+    pub text: String,
+}
+
+impl FromStr for TimeWindow {
+    type Err = TimeWindowParseError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "today" => Ok(TimeWindow::Today),
+            "yesterday" => Ok(TimeWindow::Yesterday),
+            "week" => Ok(TimeWindow::Week),
+            "month" => Ok(TimeWindow::Month),
+            _ => Err(TimeWindowParseError {
+                text: s.to_string(),
+            }),
+        }
+    }
+}
+
+impl ToString for TimeWindowParseError {
+    fn to_string(&self) -> String {
+        format!("{} not a valid time window", self.text)
+    }
+}
+
 #[derive(Debug, StructOpt)]
 enum ShowCmd {
     /// Show fields normally hidden, like story points
@@ -114,6 +150,14 @@ enum ShowCmd {
     Work {
         #[structopt(flatten)]
         show_opts: ShowCommonOpt,
+    },
+    /// Show the tasks that are "in_progress"
+    #[structopt(name = "done")]
+    Done {
+        #[structopt(flatten)]
+        show_opts: ShowCommonOpt,
+        #[structopt(short = "T", long = "time")]
+        time_window: Option<TimeWindow>,
     },
 }
 
@@ -369,7 +413,6 @@ fn main() -> Result<(), Error> {
             }
         },
         Cmd::Show(mut showopt) => {
-            let tasks = db::get_open_tasks(&dbfile)?;
             debug!("show: showopt => {:?}", showopt);
             let cmd = match showopt.cmd {
                 Some(x) => x,
@@ -379,6 +422,7 @@ fn main() -> Result<(), Error> {
             };
             match cmd {
                 ShowCmd::All { mut show_opts } => {
+                    let tasks = db::get_open_tasks(&dbfile)?;
                     showopt.show_opts.merge(&mut show_opts);
                     task::show(
                         &dbfile,
@@ -390,6 +434,7 @@ fn main() -> Result<(), Error> {
                     );
                 }
                 ShowCmd::Backlog { mut show_opts } => {
+                    let tasks = db::get_open_tasks(&dbfile)?;
                     showopt.show_opts.merge(&mut show_opts);
                     task::show(
                         &dbfile,
@@ -401,12 +446,28 @@ fn main() -> Result<(), Error> {
                     );
                 }
                 ShowCmd::Work { mut show_opts } => {
+                    let tasks = db::get_open_tasks(&dbfile)?;
                     showopt.show_opts.merge(&mut show_opts);
                     task::show(
                         &dbfile,
                         &tasks,
                         &showopt.show_opts.labels,
                         "in_progress",
+                        showopt.show_opts.reference,
+                        showopt.show_opts.hidden,
+                    );
+                }
+                ShowCmd::Done {
+                    mut show_opts,
+                    time_window,
+                } => {
+                    let tasks = db::get_done_tasks(&dbfile)?;
+                    showopt.show_opts.merge(&mut show_opts);
+                    task::show_done(
+                        &dbfile,
+                        &tasks,
+                        &showopt.show_opts.labels,
+                        &time_window.unwrap_or(TimeWindow::Today),
                         showopt.show_opts.reference,
                         showopt.show_opts.hidden,
                     );

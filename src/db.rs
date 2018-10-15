@@ -151,6 +151,29 @@ pub fn add_labels(filename: &Path, todo_id: u32, labels: &[String]) -> Result<()
     Ok(())
 }
 
+pub fn dbget_done_tasks(db: &Connection) -> Result<Vec<task::TaskDone>, Error> {
+    let mut stmt = db.prepare(
+        "SELECT t.id,t.descr,t.completion_date, t.story_points
+        FROM todos t
+        LEFT JOIN status s ON s.id = t.status_id
+        WHERE s.descr = \"done\"
+        ORDER BY completion_date ASC;",
+    )?;
+    let query_iter = stmt.query_map(&[], |row| task::TaskDone {
+        id: row.get(0),
+        descr: row.get(1),
+        completion_date: row.get(2),
+        storypoints: row.get_checked(3).unwrap_or(0),
+    })?;
+    let rc = query_iter.map(|x| x.unwrap()).collect();
+    Ok(rc)
+}
+
+pub fn get_done_tasks(filename: &Path) -> Result<Vec<task::TaskDone>, Error> {
+    let db = get_db(filename)?;
+    dbget_done_tasks(&db)
+}
+
 pub fn dbget_open_tasks(db: &Connection) -> Result<Vec<task::Task>, Error> {
     let mut stmt = db.prepare(
         "SELECT t.id,t.descr,p.descr,s.descr,t.story_points
