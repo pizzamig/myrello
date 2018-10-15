@@ -1,11 +1,12 @@
 #![cfg_attr(feature = "nightly", feature(tool_lints))]
-extern crate clap_verbosity_flag;
 #[allow(unused_imports)]
 #[macro_use]
 extern crate structopt;
+extern crate structopt_flags;
 #[macro_use]
 extern crate log;
 extern crate dirs;
+extern crate env_logger;
 extern crate failure;
 //#[macro_use]
 //extern crate failure_derive;
@@ -25,11 +26,11 @@ extern crate rusqlite;
 mod db;
 mod task;
 
-use clap_verbosity_flag::Verbosity;
 use failure::Error;
 use std::path::PathBuf;
 use structopt::clap::Shell;
 use structopt::StructOpt;
+use structopt_flags::LogLevel;
 
 //#[derive(Debug, Fail)]
 //enum MyrelloError {
@@ -40,9 +41,14 @@ use structopt::StructOpt;
 #[derive(Debug, StructOpt)]
 struct Opt {
     #[structopt(flatten)]
-    verbose: Verbosity,
+    verbose: structopt_flags::Verbose,
     /// Specify the database file you want to use
-    #[structopt(short = "d", long = "db", parse(from_os_str), raw(global = "true"))]
+    #[structopt(
+        short = "d",
+        long = "db",
+        parse(from_os_str),
+        raw(global = "true")
+    )]
     dbfile: Option<PathBuf>,
     #[structopt(subcommand)]
     cmd: Cmd,
@@ -220,7 +226,10 @@ struct OptTaskOnly {
 
 fn main() -> Result<(), Error> {
     let opt = Opt::from_args();
-    opt.verbose.setup_env_logger("myrello")?;
+    env_logger::Builder::new()
+        .filter(Some("myrello"), opt.verbose.get_level_filter())
+        .filter(None, log::LevelFilter::Error)
+        .try_init()?;
     trace!("opt => {:?}", opt);
     trace!("myrello begin");
     let dbfile = match opt.dbfile {

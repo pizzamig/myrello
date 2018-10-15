@@ -5,7 +5,7 @@ authors = ["Luca Pizzamiglio <pizzamig@FreeBSD.org>"]
 
 [dependencies]
 structopt = "^0.2"
-clap-verbosity-flag = "^0.1"
+structopt-flags = "^0.2"
 log = "^0.4"
 env_logger = "^0.5"
 rusqlite = "^0.14"
