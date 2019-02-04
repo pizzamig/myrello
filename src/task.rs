@@ -88,7 +88,7 @@ pub fn show(
         let mut stattable = Table::new();
         for st in stats.keys() {
             let num = stats.get(st).unwrap_or(&0).to_string();
-            let mut row = row![ b -> "status", &st, b -> "tasks", num];
+            let row = row![ b -> "status", &st, b -> "tasks", num];
             //println!("status: {}\ttasks: {}", st, stats.get(st).unwrap_or(&0));
             stattable.add_row(row);
         }

@@ -106,7 +106,7 @@ pub fn add_task(filename: &Path, descr: &str) -> Result<u32, Error> {
     let db = get_db(filename)?;
     let creation_date: DateTime<Utc> = Utc::now();
     let creation_date_str = creation_date.format("%Y-%m-%d %H:%M:%S").to_string();
-    let mut newdescr = String::from(descr.trim_right());
+    let mut newdescr = String::from(descr.trim_end());
     newdescr.truncate(128);
     let status: u32 = db.query_row(
         "SELECT id
@@ -346,7 +346,7 @@ pub fn set_status(filename: &Path, todo_id: u32, status: &str) -> Result<(), Err
 }
 
 pub fn dbset_descr(db: &Connection, todo_id: u32, descr: &str) -> Result<(), Error> {
-    let mut newdescr = String::from(descr.trim_right());
+    let mut newdescr = String::from(descr.trim_end());
     newdescr.truncate(128);
     let rc = db.execute(
         "UPDATE todos
@@ -417,7 +417,7 @@ pub fn increase_priority(filename: &Path, todo_id: u32) -> Result<(), Error> {
 }
 
 pub fn dbset_reference(db: &Connection, todo_id: u32, reference: &str) -> Result<(), Error> {
-    let mut newref = String::from(reference.trim_right());
+    let mut newref = String::from(reference.trim_end());
     newref.truncate(1024);
     let rc = db.execute(
         "INSERT INTO refs (descr)
