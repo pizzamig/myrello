@@ -1,32 +1,10 @@
 #![cfg_attr(feature = "nightly", feature(tool_lints))]
 #[allow(unused_imports)]
-#[macro_use]
-extern crate structopt;
-extern crate structopt_flags;
-#[macro_use]
-extern crate log;
-extern crate dirs;
-extern crate env_logger;
-extern crate failure;
-//#[macro_use]
-//extern crate failure_derive;
-extern crate chrono;
-extern crate mkdirp;
-#[macro_use]
-extern crate prettytable;
-#[cfg(test)]
-extern crate assert_cmd;
-#[cfg(test)]
-extern crate assert_fs;
-#[cfg(test)]
-#[macro_use]
-extern crate proptest;
-extern crate rusqlite;
-
 mod db;
 mod task;
 
 use failure::Error;
+use log::{debug, error, info, trace, warn};
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::string::ToString;
@@ -45,12 +23,7 @@ struct Opt {
     #[structopt(flatten)]
     verbose: structopt_flags::Verbose,
     /// Specify the database file you want to use
-    #[structopt(
-        short = "d",
-        long = "db",
-        parse(from_os_str),
-        raw(global = "true")
-    )]
+    #[structopt(short = "d", long = "db", parse(from_os_str), raw(global = "true"))]
     dbfile: Option<PathBuf>,
     #[structopt(subcommand)]
     cmd: Cmd,

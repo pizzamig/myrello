@@ -1,8 +1,9 @@
 use super::db;
 use chrono::prelude::*;
 use chrono::Duration;
+use log::trace;
 use prettytable::cell::Cell;
-use prettytable::{Attr, Table};
+use prettytable::{cell, row, Attr, Table};
 use std::collections::HashMap;
 use std::path::Path;
 
