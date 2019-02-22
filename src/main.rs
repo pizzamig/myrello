@@ -3,7 +3,8 @@
 mod db;
 mod task;
 
-use failure::Error;
+use exitfailure::ExitFailure;
+use failure::ResultExt;
 use log::{debug, error, info, trace, warn};
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -241,12 +242,18 @@ struct OptTaskOnly {
     task_id: u32,
 }
 
-fn main() -> Result<(), Error> {
+fn main() -> Result<(), ExitFailure> {
     let opt = Opt::from_args();
     env_logger::Builder::new()
         .filter(Some("myrello"), opt.verbose.get_level_filter())
         .filter(None, log::LevelFilter::Error)
-        .try_init()?;
+        .try_init()
+        .with_context(|_| {
+            format!(
+                "could net initialize the logger at level {}",
+                opt.verbose.get_level_filter()
+            )
+        })?;
     trace!("opt => {:?}", opt);
     trace!("myrello begin");
     let dbfile = match opt.dbfile {
@@ -255,7 +262,14 @@ fn main() -> Result<(), Error> {
             let default_dir = dirs::data_dir().unwrap_or_else(|| PathBuf::from("./"));
             if !default_dir.exists() {
                 trace!("creating not existing default directory {:?}", default_dir);
-                mkdirp::mkdirp(&default_dir)?;
+                mkdirp::mkdirp(&default_dir).with_context(|_| {
+                    format!(
+                        "Could not create the default directory {}",
+                        default_dir
+                            .to_str()
+                            .unwrap_or("Directory name not printable")
+                    )
+                })?;
             }
             default_dir.join("myrello.db")
         }
@@ -275,7 +289,12 @@ fn main() -> Result<(), Error> {
                 } else {
                     info!("database initialization [{:?}]", dbfile);
                 }
-                db::init(&dbfile, force)?;
+                db::init(&dbfile, force).with_context(|_| {
+                    format!(
+                        "Database initialization failed on file {}",
+                        dbfile.to_str().unwrap_or("Filename not printable")
+                    )
+                })?;
             }
         },
         Cmd::Task(taskcmd) => match taskcmd.cmd {
@@ -292,22 +311,43 @@ fn main() -> Result<(), Error> {
                     text.push(' ');
                 }
                 info!("add a task with description {}", text);
-                let new_id = db::add_task(&dbfile, &text)?;
+                let new_id = db::add_task(&dbfile, &text)
+                    .with_context(|_| format!("Failed to create the new task {}", text))?;
                 if !labels.is_empty() {
                     debug!("set labels");
-                    db::add_labels(&dbfile, new_id, &labels)?;
+                    db::add_labels(&dbfile, new_id, &labels).with_context(|_| {
+                        format!(
+                            "Failed to create attach labels {:?} to new task {}",
+                            &labels, new_id
+                        )
+                    })?;
                 }
                 if let Some(priority_str) = priority {
                     debug!("set priority {}", priority_str);
-                    db::set_priority(&dbfile, new_id, &priority_str)?;
+                    db::set_priority(&dbfile, new_id, &priority_str).with_context(|_| {
+                        format!(
+                            "Failed to set priority {} to the new task {}",
+                            priority_str, new_id
+                        )
+                    })?;
                 }
                 if let Some(storypoint_u32) = storypoint {
                     debug!("set storypoint {}", storypoint_u32);
-                    db::set_storypoint(&dbfile, new_id, storypoint_u32)?;
+                    db::set_storypoint(&dbfile, new_id, storypoint_u32).with_context(|_| {
+                        format!(
+                            "Failed to set storypoints {} to the new task {}",
+                            storypoint_u32, new_id
+                        )
+                    })?;
                 }
                 if let Some(ref_str) = reference {
                     debug!("set reference {}", ref_str);
-                    db::set_reference(&dbfile, new_id, &ref_str)?;
+                    db::set_reference(&dbfile, new_id, &ref_str).with_context(|_| {
+                        format!(
+                            "Failed to set reference {} to the new task {}",
+                            ref_str, new_id
+                        )
+                    })?;
                 }
                 println!("Create a new task, with id {}", new_id);
             }
@@ -315,7 +355,9 @@ fn main() -> Result<(), Error> {
                 if labels.is_empty() {
                     error!("You have to specify at least one label");
                 } else {
-                    db::add_labels(&dbfile, task, &labels)?;
+                    db::add_labels(&dbfile, task, &labels).with_context(|_| {
+                        format!("Failed to add labels {:?} to the task {}", labels, task)
+                    })?;
                 }
             }
             TaskCmd::Edit {
@@ -340,49 +382,70 @@ fn main() -> Result<(), Error> {
                             text.push_str(&x);
                             text.push(' ');
                             info!("edit the task with a new description {}", text);
-                            db::set_descr(&dbfile, task, &text)?;
+                            db::set_descr(&dbfile, task, &text).with_context(|_| {
+                                format!("Failed to edit task {} with description {}", task, text)
+                            })?;
                         }
                     }
                     if let Some(priority) = priority {
-                        db::set_priority(&dbfile, task, &priority)?;
+                        db::set_priority(&dbfile, task, &priority).with_context(|_| {
+                            format!("Failed to edit task {} with priority {}", task, priority)
+                        })?;
                     }
                     if let Some(storypoint_u32) = storypoint {
                         debug!("set storypoint {}", storypoint_u32);
-                        db::set_storypoint(&dbfile, task, storypoint_u32)?;
+                        db::set_storypoint(&dbfile, task, storypoint_u32).with_context(|_| {
+                            format!(
+                                "Failed to edit task {} with storypoints {}",
+                                task, storypoint_u32
+                            )
+                        })?;
                     }
                     if let Some(ref_str) = reference {
                         debug!("set reference {}", ref_str);
-                        db::set_reference(&dbfile, task, &ref_str)?;
+                        db::set_reference(&dbfile, task, &ref_str).with_context(|_| {
+                            format!("Failed to edit task {} with reference {}", task, ref_str)
+                        })?;
                     }
                     if let Some(status) = status {
                         if status == "done" {
                             warn!("To make a task as done, please use the command task-done");
-                            db::complete_task(&dbfile, task)?;
+                            db::complete_task(&dbfile, task).with_context(|_| {
+                                format!("Failed to edit task {} with status done", task)
+                            })?;
                         }
-                        db::set_status(&dbfile, task, &status)?;
+                        db::set_status(&dbfile, task, &status).with_context(|_| {
+                            format!("Failed to edit task {} with status {}", task, status)
+                        })?;
                     }
                 }
             }
             TaskCmd::Start(task) => {
                 info!("Start task {}", task.task_id);
-                db::set_status(&dbfile, task.task_id, "in_progress")?;
+                db::set_status(&dbfile, task.task_id, "in_progress")
+                    .with_context(|_| format!("Failed to start task {}", task.task_id))?;
             }
             TaskCmd::Block(task) => {
                 info!("Block task {}", task.task_id);
-                db::set_status(&dbfile, task.task_id, "block")?;
+                db::set_status(&dbfile, task.task_id, "block")
+                    .with_context(|_| format!("Failed to block task {}", task.task_id))?;
             }
             TaskCmd::Done(task) => {
                 info!("Completed task {}", task.task_id);
                 db::complete_task(&dbfile, task.task_id)?;
-                db::set_status(&dbfile, task.task_id, "done")?;
+                db::set_status(&dbfile, task.task_id, "done")
+                    .with_context(|_| format!("Failed to complete task {}", task.task_id))?;
             }
             TaskCmd::Delete(task) => {
                 info!("Delete task {}", task.task_id);
-                db::delete_task(&dbfile, task.task_id)?;
+                db::delete_task(&dbfile, task.task_id)
+                    .with_context(|_| format!("Failed to delete task {}", task.task_id))?;
             }
             TaskCmd::Prio(task) => {
                 info!("Increase priority of task {}", task.task_id);
-                db::increase_priority(&dbfile, task.task_id)?;
+                db::increase_priority(&dbfile, task.task_id).with_context(|_| {
+                    format!("Faile to increase priority of task {}", task.task_id)
+                })?;
             }
         },
         Cmd::Show(mut showopt) => {

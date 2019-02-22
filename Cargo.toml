@@ -16,6 +16,7 @@ dirs = "^1.0"
 mkdirp = "^0.1"
 chrono = "^0.4"
 prettytable-rs = "^0.7"
+exitfailure = "0.5"
 
 [dev-dependencies]
 proptest = "^0.6"
