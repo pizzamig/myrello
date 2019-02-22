@@ -13,12 +13,6 @@ use structopt::clap::Shell;
 use structopt::StructOpt;
 use structopt_flags::LogLevel;
 
-//#[derive(Debug, Fail)]
-//enum MyrelloError {
-//    #[fail(display = "Failed to retrieve the home directory")]
-//    HomeDirError,
-//}
-
 #[derive(Debug, StructOpt)]
 struct Opt {
     #[structopt(flatten)]
@@ -107,9 +101,15 @@ impl ToString for TimeWindowParseError {
 
 #[derive(Debug, StructOpt)]
 enum ShowCmd {
-    /// Show fields normally hidden, like story points
+    /// Show tasks, except the completed ones
     #[structopt(name = "all")]
     All {
+        #[structopt(flatten)]
+        show_opts: ShowCommonOpt,
+    },
+    /// Show few tasks: high priority and/or in progress
+    #[structopt(name = "short")]
+    Short {
         #[structopt(flatten)]
         show_opts: ShowCommonOpt,
     },
@@ -465,6 +465,17 @@ fn main() -> Result<(), ExitFailure> {
                         &tasks,
                         &showopt.show_opts.labels,
                         "",
+                        showopt.show_opts.reference,
+                        showopt.show_opts.hidden,
+                    );
+                }
+                ShowCmd::Short { mut show_opts } => {
+                    let tasks = db::get_open_tasks(&dbfile)?;
+                    showopt.show_opts.merge(&mut show_opts);
+                    task::show_short(
+                        &dbfile,
+                        &tasks,
+                        &showopt.show_opts.labels,
                         showopt.show_opts.reference,
                         showopt.show_opts.hidden,
                     );
