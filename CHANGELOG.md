@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 ### Added
 - show: add subcommand done, to get a list of done tasks
+- show: -t option, to show only one task (with all information)
 
 ### Changed
 - show: summary information is showed at the end
