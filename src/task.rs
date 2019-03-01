@@ -7,7 +7,7 @@ use prettytable::{cell, row, Attr, Table};
 use std::collections::HashMap;
 use std::path::Path;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Task {
     pub id: u32,
     pub descr: String,
@@ -85,12 +85,11 @@ pub fn show(
     table.printstd();
     if status != "" {
         println!("tasks: {}", stats.get(status).unwrap_or(&0));
-    } else {
+    } else if tasks.len() != 1 {
         let mut stattable = Table::new();
         for st in stats.keys() {
             let num = stats.get(st).unwrap_or(&0).to_string();
             let row = row![ b -> "status", &st, b -> "tasks", num];
-            //println!("status: {}\ttasks: {}", st, stats.get(st).unwrap_or(&0));
             stattable.add_row(row);
         }
         stattable.printstd();

@@ -63,6 +63,9 @@ struct ShowOpt {
     show_opts: ShowCommonOpt,
     #[structopt(subcommand)]
     cmd: Option<ShowCmd>,
+    /// The task id
+    #[structopt(short = "t", long = "task")]
+    task: Option<u32>,
 }
 
 #[derive(Debug)]
@@ -192,14 +195,14 @@ enum TaskCmd {
         /// attach one or more label to the task
         #[structopt(short = "l", long = "label", raw(number_of_values = "1"))]
         labels: Vec<String>,
-        /// The task description
+        /// The task id
         #[structopt(short = "t", long = "task")]
         task: u32,
     },
     /// Set a new description for the task
     #[structopt(name = "edit")]
     Edit {
-        /// The task description
+        /// The task id
         #[structopt(short = "t", long = "task")]
         task: u32,
         /// the priority level
@@ -450,74 +453,84 @@ fn main() -> Result<(), ExitFailure> {
         },
         Cmd::Show(mut showopt) => {
             debug!("show: showopt => {:?}", showopt);
-            let cmd = match showopt.cmd {
-                Some(x) => x,
-                None => ShowCmd::All {
-                    show_opts: Default::default(),
-                },
-            };
-            match cmd {
-                ShowCmd::All { mut show_opts } => {
-                    let tasks = db::get_open_tasks(&dbfile)?;
-                    showopt.show_opts.merge(&mut show_opts);
-                    task::show(
-                        &dbfile,
-                        &tasks,
-                        &showopt.show_opts.labels,
-                        "",
-                        showopt.show_opts.reference,
-                        showopt.show_opts.hidden,
-                    );
+            if let Some(task_id) = showopt.task {
+                // show only one task
+                let tasks = db::get_open_tasks(&dbfile)?;
+                let task: Vec<_> = tasks.iter().filter(|x| x.id == task_id).cloned().collect();
+                if task.is_empty() {
+                } else {
+                    task::show(&dbfile, &task, &showopt.show_opts.labels, "", true, true);
                 }
-                ShowCmd::Short { mut show_opts } => {
-                    let tasks = db::get_open_tasks(&dbfile)?;
-                    showopt.show_opts.merge(&mut show_opts);
-                    task::show_short(
-                        &dbfile,
-                        &tasks,
-                        &showopt.show_opts.labels,
-                        showopt.show_opts.reference,
-                        showopt.show_opts.hidden,
-                    );
-                }
-                ShowCmd::Backlog { mut show_opts } => {
-                    let tasks = db::get_open_tasks(&dbfile)?;
-                    showopt.show_opts.merge(&mut show_opts);
-                    task::show(
-                        &dbfile,
-                        &tasks,
-                        &showopt.show_opts.labels,
-                        "todo",
-                        showopt.show_opts.reference,
-                        showopt.show_opts.hidden,
-                    );
-                }
-                ShowCmd::Work { mut show_opts } => {
-                    let tasks = db::get_open_tasks(&dbfile)?;
-                    showopt.show_opts.merge(&mut show_opts);
-                    task::show(
-                        &dbfile,
-                        &tasks,
-                        &showopt.show_opts.labels,
-                        "in_progress",
-                        showopt.show_opts.reference,
-                        showopt.show_opts.hidden,
-                    );
-                }
-                ShowCmd::Done {
-                    mut show_opts,
-                    time_window,
-                } => {
-                    let tasks = db::get_done_tasks(&dbfile)?;
-                    showopt.show_opts.merge(&mut show_opts);
-                    task::show_done(
-                        &dbfile,
-                        &tasks,
-                        &showopt.show_opts.labels,
-                        &time_window.unwrap_or(TimeWindow::Today),
-                        showopt.show_opts.reference,
-                        showopt.show_opts.hidden,
-                    );
+            } else {
+                let cmd = match showopt.cmd {
+                    Some(x) => x,
+                    None => ShowCmd::All {
+                        show_opts: Default::default(),
+                    },
+                };
+                match cmd {
+                    ShowCmd::All { mut show_opts } => {
+                        let tasks = db::get_open_tasks(&dbfile)?;
+                        showopt.show_opts.merge(&mut show_opts);
+                        task::show(
+                            &dbfile,
+                            &tasks,
+                            &showopt.show_opts.labels,
+                            "",
+                            showopt.show_opts.reference,
+                            showopt.show_opts.hidden,
+                        );
+                    }
+                    ShowCmd::Short { mut show_opts } => {
+                        let tasks = db::get_open_tasks(&dbfile)?;
+                        showopt.show_opts.merge(&mut show_opts);
+                        task::show_short(
+                            &dbfile,
+                            &tasks,
+                            &showopt.show_opts.labels,
+                            showopt.show_opts.reference,
+                            showopt.show_opts.hidden,
+                        );
+                    }
+                    ShowCmd::Backlog { mut show_opts } => {
+                        let tasks = db::get_open_tasks(&dbfile)?;
+                        showopt.show_opts.merge(&mut show_opts);
+                        task::show(
+                            &dbfile,
+                            &tasks,
+                            &showopt.show_opts.labels,
+                            "todo",
+                            showopt.show_opts.reference,
+                            showopt.show_opts.hidden,
+                        );
+                    }
+                    ShowCmd::Work { mut show_opts } => {
+                        let tasks = db::get_open_tasks(&dbfile)?;
+                        showopt.show_opts.merge(&mut show_opts);
+                        task::show(
+                            &dbfile,
+                            &tasks,
+                            &showopt.show_opts.labels,
+                            "in_progress",
+                            showopt.show_opts.reference,
+                            showopt.show_opts.hidden,
+                        );
+                    }
+                    ShowCmd::Done {
+                        mut show_opts,
+                        time_window,
+                    } => {
+                        let tasks = db::get_done_tasks(&dbfile)?;
+                        showopt.show_opts.merge(&mut show_opts);
+                        task::show_done(
+                            &dbfile,
+                            &tasks,
+                            &showopt.show_opts.labels,
+                            &time_window.unwrap_or(TimeWindow::Today),
+                            showopt.show_opts.reference,
+                            showopt.show_opts.hidden,
+                        );
+                    }
                 }
             }
         }
