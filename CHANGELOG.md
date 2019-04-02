@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 - show: add subcommand done, to get a list of done tasks
 - show: -t option, to show only one task (with all information)
+- show: add subcommand short, to see only high priority and in_progress tasks
 
 ### Changed
 - show: summary information is showed at the end
