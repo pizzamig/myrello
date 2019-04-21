@@ -19,6 +19,6 @@ prettytable-rs = "^0.7"
 exitfailure = "0.5"
 
 [dev-dependencies]
-proptest = "^0.6"
+proptest = "^0.9"
 assert_fs = "^0.9"
 assert_cmd = "^0.9"
