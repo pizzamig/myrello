@@ -1,19 +1,17 @@
 use super::task;
 use chrono::prelude::*;
 use log::trace;
-#[cfg(test)]
-use proptest::{proptest, proptest_helper};
-use rusqlite::{Connection, Error};
+use rusqlite::{params, Connection, Error};
 use std::path::Path;
 
 pub fn delete_tables(db: &Connection) -> Result<(), Error> {
-    db.execute("DROP TABLE IF EXISTS todos;", &[])?;
-    db.execute("DROP TABLE IF EXISTS checklist_template;", &[])?;
-    db.execute("DROP TABLE IF EXISTS todo_checklist;", &[])?;
-    db.execute("DROP TABLE IF EXISTS todo_label;", &[])?;
-    db.execute("DROP TABLE IF EXISTS refs;", &[])?;
-    db.execute("DROP TABLE IF EXISTS status;", &[])?;
-    db.execute("DROP TABLE IF EXISTS priority;", &[])?;
+    db.execute("DROP TABLE IF EXISTS todos;", params![])?;
+    db.execute("DROP TABLE IF EXISTS checklist_template;", params![])?;
+    db.execute("DROP TABLE IF EXISTS todo_checklist;", params![])?;
+    db.execute("DROP TABLE IF EXISTS todo_label;", params![])?;
+    db.execute("DROP TABLE IF EXISTS refs;", params![])?;
+    db.execute("DROP TABLE IF EXISTS status;", params![])?;
+    db.execute("DROP TABLE IF EXISTS priority;", params![])?;
     Ok(())
 }
 
@@ -32,7 +30,7 @@ pub fn init(filename: &Path, delete: bool) -> Result<(), Error> {
         refs_id INTEGER,
         story_points INTEGER,
         completion_date datetime );",
-        &[],
+        params![],
     )?;
     c.execute(
         "CREATE TABLE checklist_template (
@@ -40,7 +38,7 @@ pub fn init(filename: &Path, delete: bool) -> Result<(), Error> {
         step INTEGER,
         descr varchar(1024),
         PRIMARY KEY (id,step));",
-        &[],
+        params![],
     )?;
     c.execute(
         "CREATE TABLE todo_checklist (
@@ -49,39 +47,39 @@ pub fn init(filename: &Path, delete: bool) -> Result<(), Error> {
         checklist_step INTEGER,
         completion_date datetime,
         PRIMARY KEY (todo_id,checklist_id,checklist_step) );",
-        &[],
+        params![],
     )?;
     c.execute(
         "CREATE TABLE todo_label (
         todo_id INTEGER,
         label varchar(32),
         PRIMARY KEY (todo_id,label) );",
-        &[],
+        params![],
     )?;
     c.execute(
         "CREATE TABLE refs (
         id INTEGER PRIMARY KEY ASC,
         descr varchar(1024));",
-        &[],
+        params![],
     )?;
     c.execute(
         "CREATE TABLE status (
         id INTEGER PRIMARY KEY ASC,
         descr varchar(32));",
-        &[],
+        params![],
     )?;
     c.execute(
         "CREATE TABLE priority (
         id INTEGER PRIMARY KEY ASC,
         descr varchar(16));",
-        &[],
+        params![],
     )?;
     let priority = vec!["urgent", "high", "normal", "low", "miserable"];
     for p in priority {
         match c.execute(
             "INSERT INTO priority (descr)
             VALUES (?1 );",
-            &[&p],
+            params![&p],
         ) {
             Ok(_) => (),
             Err(e) => return Err(e),
@@ -92,7 +90,7 @@ pub fn init(filename: &Path, delete: bool) -> Result<(), Error> {
         match c.execute(
             "INSERT INTO status (descr)
             VALUES (?1 );",
-            &[&s],
+            params![&s],
         ) {
             Ok(_) => (),
             Err(e) => return Err(e),
@@ -115,14 +113,14 @@ pub fn add_task(filename: &Path, descr: &str) -> Result<u32, Error> {
         "SELECT id
         FROM status
         WHERE descr = \"todo\";",
-        &[],
+        params![],
         |row| row.get(0),
     )?;
     let priority = dbget_priority_id(&db, "normal")?;
     match db.execute(
         "INSERT INTO todos (creation_date, descr, priority_id, status_id, story_points)
         VALUES (?1, ?2, ?3, ?4, 0);",
-        &[&creation_date_str, &newdescr, &priority, &status],
+        params![&creation_date_str, &newdescr, &priority, &status],
     ) {
         Ok(_) => (),
         Err(e) => return Err(e),
@@ -131,7 +129,7 @@ pub fn add_task(filename: &Path, descr: &str) -> Result<u32, Error> {
         "SELECT id
         FROM todos
         WHERE creation_date = ?1;",
-        &[&creation_date_str],
+        params![&creation_date_str],
         |row| row.get(0),
     )?;
     Ok(new_id)
@@ -145,7 +143,7 @@ pub fn add_labels(filename: &Path, todo_id: u32, labels: &[String]) -> Result<()
         match db.execute(
             "INSERT INTO todo_label (todo_id, label)
             VALUES (?1, ?2);",
-            &[&todo_id, &ll],
+            params![&todo_id, &ll],
         ) {
             Ok(_) => (),
             Err(e) => return Err(e),
@@ -162,11 +160,13 @@ pub fn dbget_done_tasks(db: &Connection) -> Result<Vec<task::TaskDone>, Error> {
         WHERE s.descr = \"done\"
         ORDER BY completion_date ASC;",
     )?;
-    let query_iter = stmt.query_map(&[], |row| task::TaskDone {
-        id: row.get(0),
-        descr: row.get(1),
-        completion_date: row.get(2),
-        storypoints: row.get_checked(3).unwrap_or(0),
+    let query_iter = stmt.query_map(params![], |row| {
+        Ok(task::TaskDone {
+            id: row.get(0)?,
+            descr: row.get(1)?,
+            completion_date: row.get(2)?,
+            storypoints: row.get(3).unwrap_or(0),
+        })
     })?;
     let rc = query_iter.map(|x| x.unwrap()).collect();
     Ok(rc)
@@ -186,12 +186,14 @@ pub fn dbget_open_tasks(db: &Connection) -> Result<Vec<task::Task>, Error> {
         WHERE completion_date IS NULL
         ORDER BY t.priority_id ASC;",
     )?;
-    let query_iter = stmt.query_map(&[], |row| task::Task {
-        id: row.get(0),
-        descr: row.get(1),
-        priority: row.get(2),
-        status: row.get(3),
-        storypoints: row.get_checked(4).unwrap_or(0),
+    let query_iter = stmt.query_map(params![], |row| {
+        Ok(task::Task {
+            id: row.get(0)?,
+            descr: row.get(1)?,
+            priority: row.get(2)?,
+            status: row.get(3)?,
+            storypoints: row.get(4).unwrap_or(0),
+        })
     })?;
     let rc = query_iter.map(|x| x.unwrap()).collect();
     Ok(rc)
@@ -225,8 +227,8 @@ pub fn get_refs(filename: &Path, todo_id: u32) -> Result<String, Error> {
         "SELECT refs_id
         FROM todos
         WHERE id = ?1;",
-        &[&todo_id],
-        |row| row.get_checked(0).unwrap_or(0),
+        params![&todo_id],
+        |row| Ok(row.get(0).unwrap_or(0)),
     )?;
     if refs_id == 0 {
         return Ok(String::new());
@@ -250,7 +252,7 @@ pub fn complete_task(filename: &Path, todo_id: u32) -> Result<(), Error> {
         "UPDATE todos
         SET completion_date = ?1
         WHERE id = ?2;",
-        &[&completion_date_str, &todo_id],
+        params![&completion_date_str, &todo_id],
     )?;
     if rc != 1 {
         Err(Error::QueryReturnedNoRows)
@@ -355,7 +357,7 @@ pub fn dbset_descr(db: &Connection, todo_id: u32, descr: &str) -> Result<(), Err
         "UPDATE todos
         SET descr = ?1
         WHERE id = ?2;",
-        &[&newdescr, &todo_id],
+        params![&newdescr, &todo_id],
     )?;
     if rc != 1 {
         Err(Error::QueryReturnedNoRows)
@@ -374,7 +376,7 @@ pub fn dbset_storypoint(db: &Connection, todo_id: u32, storypoint: u32) -> Resul
         "UPDATE todos
         SET story_points = ?1
         WHERE id = ?2;",
-        &[&storypoint, &todo_id],
+        params![&storypoint, &todo_id],
     )?;
     if rc != 1 {
         Err(Error::QueryReturnedNoRows)
@@ -393,7 +395,7 @@ pub fn dbincrease_priority(db: &Connection, todo_id: u32) -> Result<(), Error> {
         "SELECT priority_id
         FROM todos
         WHERE id = ?1;",
-        &[&todo_id],
+        params![&todo_id],
         |row| row.get(0),
     )?;
     if priority_id != 1 {
@@ -402,7 +404,7 @@ pub fn dbincrease_priority(db: &Connection, todo_id: u32) -> Result<(), Error> {
             "UPDATE todos
             SET priority_id = ?1
             WHERE id = ?2;",
-            &[&priority_id, &todo_id],
+            params![&priority_id, &todo_id],
         )?;
         if rc != 1 {
             Err(Error::QueryReturnedNoRows)
@@ -425,7 +427,7 @@ pub fn dbset_reference(db: &Connection, todo_id: u32, reference: &str) -> Result
     let rc = db.execute(
         "INSERT INTO refs (descr)
         VALUES (?1);",
-        &[&newref],
+        params![&newref],
     )?;
     if rc != 1 {
         return Err(Error::QueryReturnedNoRows);
@@ -434,14 +436,14 @@ pub fn dbset_reference(db: &Connection, todo_id: u32, reference: &str) -> Result
         "SELECT id
         FROM refs
         WHERE descr = ?1;",
-        &[&newref],
+        params![&newref],
         |row| row.get(0),
     )?;
     let rc = db.execute(
         "UPDATE todos
         SET refs_id = ?1
         WHERE id = ?2;",
-        &[&ref_id, &todo_id],
+        params![&ref_id, &todo_id],
     )?;
     if rc != 1 {
         Err(Error::QueryReturnedNoRows)
@@ -455,11 +457,124 @@ pub fn set_reference(filename: &Path, todo_id: u32, reference: &str) -> Result<(
     dbset_reference(&db, todo_id, reference)
 }
 
+use futures::{Async, Future, Poll};
+use std::path::PathBuf;
+pub struct GetDb {
+    filename: PathBuf,
+}
+
+impl GetDb {
+    fn new(filename: &Path) -> Self {
+        GetDb {
+            filename: filename.to_path_buf(),
+        }
+    }
+}
+
+impl Future for GetDb {
+    type Item = Connection;
+    type Error = Error;
+    fn poll(&mut self) -> Result<Async<Self::Item>, Error> {
+        match get_db(&self.filename) {
+            Ok(c) => Ok(Async::Ready(c)),
+            Err(e) => Err(e),
+        }
+    }
+}
+
+pub fn get_db_async(filename: &Path) -> GetDb {
+    GetDb::new(filename)
+}
+
+pub struct GetPriorityIDbyTask<'a> {
+    connection: &'a Connection,
+    task_id: u32,
+}
+
+impl<'a> GetPriorityIDbyTask<'a> {
+    fn new(connection: &'a Connection, task_id: u32) -> Self {
+        GetPriorityIDbyTask {
+            connection,
+            task_id,
+        }
+    }
+}
+
+impl<'a> Future for GetPriorityIDbyTask<'a> {
+    type Item = u32;
+    type Error = Error;
+
+    fn poll(&mut self) -> Result<Async<Self::Item>, Error> {
+        let priority_id: u32 = self.connection.query_row(
+            "SELECT priority_id
+            FROM todos
+            WHERE id = ?1;",
+            params![&self.task_id],
+            |row| Ok(row.get(0)?),
+        )?;
+        Ok(Async::Ready(priority_id))
+    }
+}
+
+struct IncreasePriority<'a> {
+    connection: &'a Connection,
+    todo_id: u32,
+    priority_id_future: Option<Box<GetPriorityIDbyTask<'a>>>,
+}
+
+impl<'a> IncreasePriority<'a> {
+    fn new(connection: &'a Connection, todo_id: u32) -> Self {
+        IncreasePriority {
+            connection,
+            todo_id,
+            priority_id_future: None,
+        }
+    }
+}
+
+impl<'a> Future for IncreasePriority<'a> {
+    type Item = ();
+    type Error = Error;
+
+    fn poll(&mut self) -> Poll<Self::Item, Error> {
+        if self.priority_id_future.is_none() {
+            self.priority_id_future = Some(Box::new(GetPriorityIDbyTask::new(
+                self.connection,
+                self.todo_id,
+            )));
+        }
+        let priority_id = match self.priority_id_future.as_mut().unwrap().poll() {
+            Ok(Async::Ready(v)) => v,
+            Ok(Async::NotReady) => return Ok(Async::NotReady),
+            Err(e) => return Err(e),
+        };
+
+        if priority_id != 1 {
+            let priority_id = priority_id - 1;
+            let rc = self.connection.execute(
+                "UPDATE todos
+                SET priority_id = ?1
+                WHERE id = ?2;",
+                &[&priority_id, &self.todo_id],
+            )?;
+            if rc != 1 {
+                Err(Error::QueryReturnedNoRows)
+            } else {
+                Ok(Async::Ready(()))
+            }
+        } else {
+            Ok(Async::Ready(()))
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
     use assert_fs::prelude::*;
     use assert_fs::TempDir;
+    use proptest::prelude::*;
+    use proptest::{proptest, proptest_helper};
 
     #[test]
     fn test_init_1() {
@@ -539,6 +654,7 @@ mod test {
     }
 
     proptest! {
+        #![proptest_config(ProptestConfig::with_cases(5))]
         #[test]
         fn test_dbget_priority_1(ref s in "urgent|high|normal|low|miserable") {
             let temp = TempDir::new().unwrap();
