@@ -7,11 +7,11 @@ use exitfailure::ExitFailure;
 use failure::ResultExt;
 use log::{debug, error, info, trace, warn};
 use std::path::PathBuf;
-use std::str::FromStr;
 use std::string::ToString;
 use structopt::clap::Shell;
 use structopt::StructOpt;
 use structopt_flags::LogLevel;
+use task::TimeWindow;
 
 #[derive(Debug, StructOpt)]
 struct Opt {
@@ -66,40 +66,6 @@ struct ShowOpt {
     /// The task id
     #[structopt(short = "t", long = "task")]
     task: Option<u32>,
-}
-
-#[derive(Debug)]
-pub enum TimeWindow {
-    Today,
-    Yesterday,
-    Week,
-    Month,
-}
-
-#[derive(Debug)]
-pub struct TimeWindowParseError {
-    pub text: String,
-}
-
-impl FromStr for TimeWindow {
-    type Err = TimeWindowParseError;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "today" => Ok(TimeWindow::Today),
-            "yesterday" => Ok(TimeWindow::Yesterday),
-            "week" => Ok(TimeWindow::Week),
-            "month" => Ok(TimeWindow::Month),
-            _ => Err(TimeWindowParseError {
-                text: s.to_string(),
-            }),
-        }
-    }
-}
-
-impl ToString for TimeWindowParseError {
-    fn to_string(&self) -> String {
-        format!("{} not a valid time window", self.text)
-    }
 }
 
 #[derive(Debug, StructOpt)]

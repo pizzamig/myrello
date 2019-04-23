@@ -6,6 +6,7 @@ use prettytable::cell::Cell;
 use prettytable::{cell, row, Attr, Table};
 use std::collections::HashMap;
 use std::path::Path;
+use std::str::FromStr;
 
 #[derive(Debug, Clone)]
 pub struct Task {
@@ -24,6 +25,39 @@ pub struct TaskDone {
     pub storypoints: u32,
 }
 
+#[derive(Debug)]
+pub enum TimeWindow {
+    Today,
+    Yesterday,
+    Week,
+    Month,
+}
+
+#[derive(Debug)]
+pub struct TimeWindowParseError {
+    pub text: String,
+}
+
+impl FromStr for TimeWindow {
+    type Err = TimeWindowParseError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "today" => Ok(TimeWindow::Today),
+            "yesterday" => Ok(TimeWindow::Yesterday),
+            "week" => Ok(TimeWindow::Week),
+            "month" => Ok(TimeWindow::Month),
+            _ => Err(TimeWindowParseError {
+                text: s.to_string(),
+            }),
+        }
+    }
+}
+
+impl ToString for TimeWindowParseError {
+    fn to_string(&self) -> String {
+        format!("{} not a valid time window", self.text)
+    }
+}
 fn check_label(labels: &[String], task_labels: &[String]) -> bool {
     if labels.is_empty() {
         return true;
@@ -160,7 +194,7 @@ pub fn show_done(
     filename: &Path,
     tasks: &[TaskDone],
     label: &[String],
-    timewindow: &super::TimeWindow,
+    timewindow: &TimeWindow,
     reference: bool,
     storypoints: bool,
 ) {
@@ -180,10 +214,10 @@ pub fn show_done(
             NaiveDateTime::parse_from_str(t.completion_date.as_str(), "%Y-%m-%d %H:%M:%S").unwrap();
         let duration = now.naive_utc() - completed;
         let max_duration = match timewindow {
-            super::TimeWindow::Today => Duration::days(1),
-            super::TimeWindow::Yesterday => Duration::days(2),
-            super::TimeWindow::Week => Duration::weeks(1),
-            super::TimeWindow::Month => Duration::weeks(4),
+            TimeWindow::Today => Duration::days(1),
+            TimeWindow::Yesterday => Duration::days(2),
+            TimeWindow::Week => Duration::weeks(1),
+            TimeWindow::Month => Duration::weeks(4),
         };
         if duration < max_duration {
             let task_labels: Vec<String> = db::get_labels(filename, t.id).unwrap_or_default();
