@@ -532,14 +532,14 @@ impl Future for IncreasePriority {
                 todo_id: self.todo_id,
             }));
         }
-        let priority_id = match self.priority_id_future.as_mut().unwrap().poll() {
+        let mut priority_id = match self.priority_id_future.as_mut().unwrap().poll() {
             Ok(Async::Ready(v)) => v,
             Ok(Async::NotReady) => return Ok(Async::NotReady),
             Err(e) => return Err(e),
         };
 
         if priority_id != 1 {
-            let priority_id = priority_id - 1;
+            priority_id -= 1;
             let conn = self.connection.lock().unwrap();
             let rc = conn.execute(
                 "UPDATE todos
