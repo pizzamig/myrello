@@ -4,10 +4,10 @@ use std::path::Path;
 use tokio::prelude::*;
 
 fn main() -> Result<(), ExitFailure> {
-    let fut = crate::db::get_db_async(Path::new("~/.local/share/myrello.db"))
+    let fut = db::get_db_async(Path::new("/usr/home/lpizzamiglio/.local/share/myrello.db"))
         .and_then(move |connection| db::GetPriorityIDbyTask {
-            connection: &connection,
-            task_id: 1,
+            connection,
+            todo_id: 229,
         })
         .and_then(|priority| {
             println!("the task 1 has priority {}", priority);

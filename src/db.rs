@@ -168,7 +168,7 @@ pub fn dbget_done_tasks(db: &Connection) -> Result<Vec<task::TaskDone>, Error> {
             storypoints: row.get(3).unwrap_or(0),
         })
     })?;
-    let rc = query_iter.map(|x| x.unwrap()).collect();
+    let rc = query_iter.map(std::result::Result::unwrap).collect();
     Ok(rc)
 }
 
@@ -195,7 +195,7 @@ pub fn dbget_open_tasks(db: &Connection) -> Result<Vec<task::Task>, Error> {
             storypoints: row.get(4).unwrap_or(0),
         })
     })?;
-    let rc = query_iter.map(|x| x.unwrap()).collect();
+    let rc = query_iter.map(std::result::Result::unwrap).collect();
     Ok(rc)
 }
 
@@ -211,7 +211,7 @@ pub fn dbget_labels(db: &Connection, todo_id: u32) -> Result<Vec<String>, Error>
         WHERE todo_id = ?1;",
     )?;
     let query_iter = stmt.query_map(&[&todo_id], |row| row.get(0))?;
-    let labels = query_iter.map(|x| x.unwrap()).collect();
+    let labels = query_iter.map(std::result::Result::unwrap).collect();
     Ok(labels)
 }
 
@@ -457,73 +457,62 @@ pub fn set_reference(filename: &Path, todo_id: u32, reference: &str) -> Result<(
     dbset_reference(&db, todo_id, reference)
 }
 
+//use crate::MutConn;
 use futures::{Async, Future, Poll};
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
+
 pub struct GetDb {
     filename: PathBuf,
 }
 
-impl GetDb {
-    fn new(filename: &Path) -> Self {
-        GetDb {
-            filename: filename.to_path_buf(),
-        }
-    }
-}
-
 impl Future for GetDb {
-    type Item = Connection;
+    type Item = Arc<Mutex<Connection>>;
     type Error = Error;
     fn poll(&mut self) -> Result<Async<Self::Item>, Error> {
         match get_db(&self.filename) {
-            Ok(c) => Ok(Async::Ready(c)),
+            Ok(c) => Ok(Async::Ready(Arc::new(Mutex::new(c)))),
             Err(e) => Err(e),
         }
     }
 }
 
 pub fn get_db_async(filename: &Path) -> GetDb {
-    GetDb::new(filename)
-}
-
-pub struct GetPriorityIDbyTask<'a> {
-    connection: &'a Connection,
-    task_id: u32,
-}
-
-impl<'a> GetPriorityIDbyTask<'a> {
-    fn new(connection: &'a Connection, task_id: u32) -> Self {
-        GetPriorityIDbyTask {
-            connection,
-            task_id,
-        }
+    GetDb {
+        filename: filename.to_path_buf(),
     }
 }
 
-impl<'a> Future for GetPriorityIDbyTask<'a> {
+pub struct GetPriorityIDbyTask {
+    pub connection: Arc<Mutex<Connection>>,
+    pub todo_id: u32,
+}
+
+impl Future for GetPriorityIDbyTask {
     type Item = u32;
     type Error = Error;
 
     fn poll(&mut self) -> Result<Async<Self::Item>, Error> {
-        let priority_id: u32 = self.connection.query_row(
+        let conn = self.connection.lock().unwrap();
+        let priority_id: u32 = conn.query_row(
             "SELECT priority_id
             FROM todos
             WHERE id = ?1;",
-            params![&self.task_id],
+            params![&self.todo_id],
             |row| Ok(row.get(0)?),
         )?;
         Ok(Async::Ready(priority_id))
     }
 }
 
-struct IncreasePriority<'a> {
-    connection: &'a Connection,
+struct IncreasePriority {
+    connection: Arc<Mutex<Connection>>,
     todo_id: u32,
-    priority_id_future: Option<Box<GetPriorityIDbyTask<'a>>>,
+    priority_id_future: Option<Box<GetPriorityIDbyTask>>,
 }
 
-impl<'a> IncreasePriority<'a> {
-    fn new(connection: &'a Connection, todo_id: u32) -> Self {
+impl IncreasePriority {
+    fn new(connection: Arc<Mutex<Connection>>, todo_id: u32) -> Self {
         IncreasePriority {
             connection,
             todo_id,
@@ -532,16 +521,16 @@ impl<'a> IncreasePriority<'a> {
     }
 }
 
-impl<'a> Future for IncreasePriority<'a> {
+impl Future for IncreasePriority {
     type Item = ();
     type Error = Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Error> {
         if self.priority_id_future.is_none() {
-            self.priority_id_future = Some(Box::new(GetPriorityIDbyTask::new(
-                self.connection,
-                self.todo_id,
-            )));
+            self.priority_id_future = Some(Box::new(GetPriorityIDbyTask {
+                connection: self.connection.clone(),
+                todo_id: self.todo_id,
+            }));
         }
         let priority_id = match self.priority_id_future.as_mut().unwrap().poll() {
             Ok(Async::Ready(v)) => v,
@@ -551,11 +540,12 @@ impl<'a> Future for IncreasePriority<'a> {
 
         if priority_id != 1 {
             let priority_id = priority_id - 1;
-            let rc = self.connection.execute(
+            let conn = self.connection.lock().unwrap();
+            let rc = conn.execute(
                 "UPDATE todos
                 SET priority_id = ?1
                 WHERE id = ?2;",
-                &[&priority_id, &self.todo_id],
+                params![&priority_id, &self.todo_id],
             )?;
             if rc != 1 {
                 Err(Error::QueryReturnedNoRows)
