@@ -2,7 +2,7 @@
 authors = ["Luca Pizzamiglio <pizzamig@FreeBSD.org>"]
 edition = "2018"
 name = "myrello"
-version = "0.3.1"
+version = "0.4.0"
 [dependencies]
 chrono = "^0.4"
 dirs = "^1.0"
@@ -16,7 +16,9 @@ mkdirp = "^0.1"
 prettytable-rs = "^0.7"
 rusqlite = "0.17"
 structopt = "^0.2"
-structopt-flags = "^0.2"
+structopt-flags = { version = "0.3", features = ["simplelog"] }
+strum = "0.15"
+strum_macros = "0.15"
 tokio = "0.1"
 
 [dev-dependencies]

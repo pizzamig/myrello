@@ -1,12 +1,11 @@
 use super::db;
 use chrono::prelude::*;
 use chrono::Duration;
-use log::trace;
 use prettytable::cell::Cell;
 use prettytable::{cell, row, Attr, Table};
 use std::collections::HashMap;
 use std::path::Path;
-use std::str::FromStr;
+use strum_macros::{Display, EnumString};
 
 #[derive(Debug, Clone)]
 pub struct Task {
@@ -25,39 +24,18 @@ pub struct TaskDone {
     pub storypoints: u32,
 }
 
-#[derive(Debug)]
+#[derive(Debug, EnumString, Display)]
 pub enum TimeWindow {
+    #[strum(serialize = "today")]
     Today,
+    #[strum(serialize = "yesterday")]
     Yesterday,
+    #[strum(serialize = "week")]
     Week,
+    #[strum(serialize = "month")]
     Month,
 }
 
-#[derive(Debug)]
-pub struct TimeWindowParseError {
-    pub text: String,
-}
-
-impl FromStr for TimeWindow {
-    type Err = TimeWindowParseError;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "today" => Ok(TimeWindow::Today),
-            "yesterday" => Ok(TimeWindow::Yesterday),
-            "week" => Ok(TimeWindow::Week),
-            "month" => Ok(TimeWindow::Month),
-            _ => Err(TimeWindowParseError {
-                text: s.to_string(),
-            }),
-        }
-    }
-}
-
-impl ToString for TimeWindowParseError {
-    fn to_string(&self) -> String {
-        format!("{} not a valid time window", self.text)
-    }
-}
 fn check_label(labels: &[String], task_labels: &[String]) -> bool {
     if labels.is_empty() {
         return true;
@@ -69,68 +47,94 @@ fn check_label(labels: &[String], task_labels: &[String]) -> bool {
     }
     true
 }
-#[cfg_attr(feature = "nightly", allow(clippy::ptr_arg))]
-pub fn show(
-    filename: &Path,
-    tasks: &[Task],
-    label: &[String],
-    status: &str,
-    reference: bool,
-    storypoints: bool,
-) {
-    let mut stats = HashMap::new();
-    let mut table = Table::new();
+
+fn label_to_str(labels: &[String]) -> String {
+    let mut rv = String::new();
+    if !labels.is_empty() {
+        for l in labels {
+            rv.push_str(l);
+            rv.push('\n');
+        }
+    }
+    rv
+}
+
+#[derive(Debug, Default)]
+pub struct ShowParams<'a> {
+    pub label: &'a [String],
+    pub reference: bool,
+    pub status: &'a str,
+    pub storypoints: bool,
+}
+
+fn show_stats(stats: &HashMap<&str, u64>) {
+    let mut stattable = Table::new();
+    for st in stats.keys() {
+        let num = stats.get(st).unwrap_or(&0).to_string();
+        let row = row![ b -> "status", &st, b -> "tasks", num];
+        stattable.add_row(row);
+    }
+    stattable.printstd();
+}
+
+fn set_title(table: &mut Table, param: &ShowParams) {
     let mut title = row![b => "Id", "Priority", "Status", "Labels", "Description"];
-    if storypoints {
+    if param.storypoints {
         title.add_cell(Cell::new("Story points").with_style(Attr::Bold));
     }
-    if reference {
+    if param.reference {
         title.add_cell(Cell::new("Reference").with_style(Attr::Bold));;
     }
     table.set_titles(title);
+}
+
+pub fn show2(filename: &Path, tasks: &[Task], param: ShowParams) {
+    let mut stats = HashMap::new();
+    let mut table = Table::new();
+    set_title(&mut table, &param);
     for t in tasks {
         let task_labels: Vec<String> = db::get_labels(filename, t.id).unwrap_or_default();
-        if check_label(label, &task_labels) && (status == "" || t.status == status) {
-            let label_str = if task_labels.is_empty() {
-                trace!("No labels for task {}", t.id);
-                String::new()
-            } else {
-                let mut label_str = String::new();
-                for l in task_labels {
-                    label_str.push_str(&l);
-                    label_str.push('\n');
-                }
-                label_str
-            };
-            let mut row =
-                row![ b -> &t.id.to_string(), &t.priority, &t.status, &label_str, &t.descr];
-            if storypoints {
+        if check_label(param.label, &task_labels)
+            && (param.status == "" || t.status == param.status)
+        {
+            let mut row = row![ b -> &t.id.to_string(), &t.priority, &t.status, &label_to_str(&task_labels), &t.descr];
+            if param.storypoints {
                 row.add_cell(Cell::new(&t.storypoints.to_string()));
             }
-            if reference {
+            if param.reference {
                 let reference_str = db::get_refs(filename, t.id).unwrap_or_default();
                 row.add_cell(Cell::new(&reference_str));
             }
             table.add_row(row);
-            let counter = stats.entry(t.status.as_str()).or_insert(0);
+            let counter = stats.entry(t.status.as_str()).or_insert(0u64);
             *counter += 1;
         }
     }
     table.printstd();
-    if status != "" {
-        println!("tasks: {}", stats.get(status).unwrap_or(&0));
+    if param.status != "" {
+        println!("tasks: {}", stats.get(param.status).unwrap_or(&0));
     } else if tasks.len() != 1 {
-        let mut stattable = Table::new();
-        for st in stats.keys() {
-            let num = stats.get(st).unwrap_or(&0).to_string();
-            let row = row![ b -> "status", &st, b -> "tasks", num];
-            stattable.add_row(row);
-        }
-        stattable.printstd();
+        show_stats(&stats);
     }
 }
 
-#[cfg_attr(feature = "nightly", allow(clippy::ptr_arg))]
+pub fn show1task(filename: &Path, task_id: u32) {
+    let tasks = db::get_open_tasks(&filename).unwrap_or_default();
+    let task: Vec<_> = tasks.iter().filter(|x| x.id == task_id).cloned().collect();
+    if !task.is_empty() {
+        show2(
+            &filename,
+            &task,
+            ShowParams {
+                label: &[],
+                status: "",
+                reference: true,
+                storypoints: true,
+            },
+        );
+    }
+}
+
 pub fn show_short(
     filename: &Path,
     tasks: &[Task],
@@ -140,30 +144,21 @@ pub fn show_short(
 ) {
     let mut stats = HashMap::new();
     let mut table = Table::new();
-    let mut title = row![b => "Id", "Priority", "Status", "Labels", "Description"];
-    if storypoints {
-        title.add_cell(Cell::new("Story points").with_style(Attr::Bold));
-    }
-    if reference {
-        title.add_cell(Cell::new("Reference").with_style(Attr::Bold));;
-    }
-    table.set_titles(title);
+    set_title(
+        &mut table,
+        &ShowParams {
+            label,
+            status: "",
+            reference,
+            storypoints,
+        },
+    );
     for t in tasks {
         let task_labels: Vec<String> = db::get_labels(filename, t.id).unwrap_or_default();
         if check_label(label, &task_labels)
             && (t.status == "in_progress" || t.priority == "high" || t.priority == "urgent")
         {
-            let label_str = if task_labels.is_empty() {
-                trace!("No labels for task {}", t.id);
-                String::new()
-            } else {
-                let mut label_str = String::new();
-                for l in task_labels {
-                    label_str.push_str(&l);
-                    label_str.push('\n');
-                }
-                label_str
-            };
+            let label_str = label_to_str(&task_labels);
             let mut row =
                 row![ b -> &t.id.to_string(), &t.priority, &t.status, &label_str, &t.descr];
             if storypoints {
@@ -174,22 +169,16 @@ pub fn show_short(
                 row.add_cell(Cell::new(&reference_str));
             }
             table.add_row(row);
-            let counter = stats.entry(t.status.as_str()).or_insert(0);
+            let counter = stats.entry(t.status.as_str()).or_insert(0u64);
             *counter += 1;
         }
     }
     table.printstd();
-    let mut stattable = Table::new();
-    for st in stats.keys() {
-        let num = stats.get(st).unwrap_or(&0).to_string();
-        let row = row![ b -> "status", &st, b -> "tasks", num];
-        //println!("status: {}\ttasks: {}", st, stats.get(st).unwrap_or(&0));
-        stattable.add_row(row);
+    if tasks.len() != 1 {
+        show_stats(&stats);
     }
-    stattable.printstd();
 }
 
-#[cfg_attr(feature = "nightly", allow(clippy::ptr_arg))]
 pub fn show_done(
     filename: &Path,
     tasks: &[TaskDone],
@@ -200,14 +189,15 @@ pub fn show_done(
 ) {
     let mut stats = HashMap::new();
     let mut table = Table::new();
-    let mut title = row![b => "Id", "Labels", "Description", "Completed"];
-    if storypoints {
-        title.add_cell(Cell::new("Story points").with_style(Attr::Bold));
-    }
-    if reference {
-        title.add_cell(Cell::new("Reference").with_style(Attr::Bold));;
-    }
-    table.set_titles(title);
+    set_title(
+        &mut table,
+        &ShowParams {
+            label,
+            status: "",
+            reference,
+            storypoints,
+        },
+    );
     for t in tasks {
         let now: DateTime<Utc> = Utc::now();
         let completed: NaiveDateTime =
@@ -222,17 +212,7 @@ pub fn show_done(
         if duration < max_duration {
             let task_labels: Vec<String> = db::get_labels(filename, t.id).unwrap_or_default();
             if check_label(label, &task_labels) {
-                let label_str = if task_labels.is_empty() {
-                    trace!("No labels for task {}", t.id);
-                    String::new()
-                } else {
-                    let mut label_str = String::new();
-                    for l in task_labels {
-                        label_str.push_str(&l);
-                        label_str.push('\n');
-                    }
-                    label_str
-                };
+                let label_str = label_to_str(&task_labels);
                 let mut row =
                     row![ b -> &t.id.to_string(), &label_str, &t.descr, &t.completion_date];
                 if storypoints {
