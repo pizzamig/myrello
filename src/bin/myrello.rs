@@ -3,11 +3,12 @@
 use exitfailure::ExitFailure;
 use failure::ResultExt;
 use log::{debug, error, info, trace, warn};
+use myrello::cli_opt::{Cmd, DbCmd, TaskCmd};
+use myrello::cli_opt::{ShowCmd, ShowOpt};
 use myrello::db;
 use myrello::task;
 use myrello::task::TimeWindow;
 use std::path::PathBuf;
-use std::string::ToString;
 use structopt::clap::Shell;
 use structopt::StructOpt;
 use structopt_flags::LogLevel;
@@ -21,195 +22,6 @@ struct Opt {
     dbfile: Option<PathBuf>,
     #[structopt(subcommand)]
     cmd: Cmd,
-}
-
-#[derive(Debug, StructOpt)]
-enum Cmd {
-    /// Show all
-    #[structopt(name = "show")]
-    Show(ShowOpt),
-    /// Work on the task database
-    #[structopt(name = "database")]
-    Db(DbOpt),
-    /// Work on tasks/todos
-    #[structopt(name = "task")]
-    Task(TaskOpt),
-    /// Generate autocompletion for zsh
-    #[structopt(name = "completion")]
-    Completion,
-}
-
-#[derive(Debug, StructOpt)]
-struct DbOpt {
-    #[structopt(subcommand)]
-    cmd: DbCmd,
-}
-
-#[derive(Debug, StructOpt)]
-enum DbCmd {
-    /// Database initialization
-    #[structopt(name = "init")]
-    Init {
-        /// Force the initialization. Current data found in the data file will be lost.
-        #[structopt(short = "f", long = "force")]
-        force: bool,
-    },
-}
-
-#[derive(Debug, StructOpt)]
-struct ShowOpt {
-    #[structopt(flatten)]
-    show_opts: ShowCommonOpt,
-    #[structopt(subcommand)]
-    cmd: Option<ShowCmd>,
-    /// The task id
-    #[structopt(short = "t", long = "task")]
-    task: Option<u32>,
-}
-
-#[derive(Debug, StructOpt)]
-enum ShowCmd {
-    /// Show tasks, except the completed ones
-    #[structopt(name = "all")]
-    All {
-        #[structopt(flatten)]
-        show_opts: ShowCommonOpt,
-    },
-    /// Show few tasks: high priority and/or in progress
-    #[structopt(name = "short")]
-    Short {
-        #[structopt(flatten)]
-        show_opts: ShowCommonOpt,
-    },
-    /// Show the backlog, all the tasks in todo
-    #[structopt(name = "backlog")]
-    Backlog {
-        #[structopt(flatten)]
-        show_opts: ShowCommonOpt,
-    },
-    /// Show the tasks that are "in_progress"
-    #[structopt(name = "work")]
-    Work {
-        #[structopt(flatten)]
-        show_opts: ShowCommonOpt,
-    },
-    /// Show the tasks that are "in_progress"
-    #[structopt(name = "done")]
-    Done {
-        #[structopt(flatten)]
-        show_opts: ShowCommonOpt,
-        /// The time window desired
-        /// Possible values are: today, yesterday, week, month
-        #[structopt(short = "T", long = "time")]
-        time_window: Option<TimeWindow>,
-    },
-}
-
-#[derive(Debug, StructOpt, Default)]
-struct ShowCommonOpt {
-    /// Show fields normally hidden, like story points
-    #[structopt(short = "H", long = "hidden")]
-    hidden: bool,
-    /// Select one or more label as filter
-    #[structopt(short = "l", long = "label", raw(number_of_values = "1"))]
-    labels: Vec<String>,
-    /// Show references as well
-    #[structopt(short = "r", long = "reference")]
-    reference: bool,
-}
-
-impl ShowCommonOpt {
-    fn merge(&mut self, to_merge: &mut ShowCommonOpt) {
-        if to_merge.hidden {
-            self.hidden = true;
-        }
-        if to_merge.reference {
-            self.reference = true;
-        }
-        self.labels.append(&mut to_merge.labels);
-    }
-}
-#[derive(Debug, StructOpt)]
-struct TaskOpt {
-    #[structopt(subcommand)]
-    cmd: TaskCmd,
-}
-
-#[derive(Debug, StructOpt)]
-enum TaskCmd {
-    /// Create a new task
-    #[structopt(name = "new")]
-    New {
-        /// attach one or more label to the task
-        #[structopt(short = "l", long = "label", raw(number_of_values = "1"))]
-        labels: Vec<String>,
-        /// set a reference to the task
-        #[structopt(short = "r", long = "reference")]
-        reference: Option<String>,
-        /// set a priority
-        #[structopt(short = "p", long = "priority")]
-        priority: Option<String>,
-        /// the story points
-        #[structopt(short = "S", long = "story-points")]
-        storypoint: Option<u32>,
-        /// The task description
-        #[structopt(raw(required = "true"))]
-        descr: Vec<String>,
-    },
-    /// Add a label to an existing task
-    #[structopt(name = "add-label")]
-    AddLabel {
-        /// attach one or more label to the task
-        #[structopt(short = "l", long = "label", raw(number_of_values = "1"))]
-        labels: Vec<String>,
-        /// The task id
-        #[structopt(short = "t", long = "task")]
-        task: u32,
-    },
-    /// Set a new description for the task
-    #[structopt(name = "edit")]
-    Edit {
-        /// The task id
-        #[structopt(short = "t", long = "task")]
-        task: u32,
-        /// the priority level
-        #[structopt(short = "p", long = "priority")]
-        priority: Option<String>,
-        /// the task' status
-        #[structopt(short = "s", long = "status")]
-        status: Option<String>,
-        /// the story points
-        #[structopt(short = "S", long = "story-points")]
-        storypoint: Option<u32>,
-        /// set a reference to the task
-        #[structopt(short = "r", long = "reference")]
-        reference: Option<String>,
-        /// The task description
-        #[structopt()]
-        descr: Vec<String>,
-    },
-    /// Close a task
-    #[structopt(name = "done")]
-    Done(OptTaskOnly),
-    /// Start to work on a task
-    #[structopt(name = "start")]
-    Start(OptTaskOnly),
-    /// Mark the task as blocked
-    #[structopt(name = "block")]
-    Block(OptTaskOnly),
-    /// Delete a task
-    #[structopt(name = "delete")]
-    Delete(OptTaskOnly),
-    /// Increase the priority of a task
-    #[structopt(name = "prio")]
-    Prio(OptTaskOnly),
-}
-
-#[derive(Debug, StructOpt)]
-struct OptTaskOnly {
-    /// The task id
-    #[structopt(short = "t", long = "task")]
-    task_id: u32,
 }
 
 fn dbfile_default() -> Result<std::path::PathBuf, ExitFailure> {
@@ -255,23 +67,14 @@ fn cmd_show(mut showopt: ShowOpt, dbfile: &std::path::Path) -> Result<(), ExitFa
             show_opts: Default::default(),
         });
         match cmd {
-            ShowCmd::All { mut show_opts } => {
+            ShowCmd::All { show_opts } => {
                 let tasks = db::get_open_tasks(dbfile)?;
-                showopt.show_opts.merge(&mut show_opts);
-                task::show2(
-                    dbfile,
-                    &tasks,
-                    task::ShowParams {
-                        label: &showopt.show_opts.labels,
-                        status: "",
-                        reference: showopt.show_opts.reference,
-                        storypoints: showopt.show_opts.hidden,
-                    },
-                );
+                showopt.show_opts.merge(&show_opts);
+                task::show2(dbfile, &tasks, showopt.show_opts.as_show_params(""));
             }
-            ShowCmd::Short { mut show_opts } => {
+            ShowCmd::Short { show_opts } => {
                 let tasks = db::get_open_tasks(dbfile)?;
-                showopt.show_opts.merge(&mut show_opts);
+                showopt.show_opts.merge(&show_opts);
                 task::show_short(
                     dbfile,
                     &tasks,
@@ -280,40 +83,26 @@ fn cmd_show(mut showopt: ShowOpt, dbfile: &std::path::Path) -> Result<(), ExitFa
                     showopt.show_opts.hidden,
                 );
             }
-            ShowCmd::Backlog { mut show_opts } => {
+            ShowCmd::Backlog { show_opts } => {
                 let tasks = db::get_open_tasks(dbfile)?;
-                showopt.show_opts.merge(&mut show_opts);
-                task::show2(
-                    dbfile,
-                    &tasks,
-                    task::ShowParams {
-                        label: &showopt.show_opts.labels,
-                        status: "todo",
-                        reference: showopt.show_opts.reference,
-                        storypoints: showopt.show_opts.hidden,
-                    },
-                );
+                showopt.show_opts.merge(&show_opts);
+                task::show2(dbfile, &tasks, showopt.show_opts.as_show_params("todo"));
             }
-            ShowCmd::Work { mut show_opts } => {
+            ShowCmd::Work { show_opts } => {
                 let tasks = db::get_open_tasks(dbfile)?;
-                showopt.show_opts.merge(&mut show_opts);
+                showopt.show_opts.merge(&show_opts);
                 task::show2(
                     dbfile,
                     &tasks,
-                    task::ShowParams {
-                        label: &showopt.show_opts.labels,
-                        status: "in_progress",
-                        reference: showopt.show_opts.reference,
-                        storypoints: showopt.show_opts.hidden,
-                    },
+                    showopt.show_opts.as_show_params("in_progress"),
                 );
             }
             ShowCmd::Done {
-                mut show_opts,
+                show_opts,
                 time_window,
             } => {
                 let tasks = db::get_done_tasks(dbfile)?;
-                showopt.show_opts.merge(&mut show_opts);
+                showopt.show_opts.merge(&show_opts);
                 task::show_done(
                     dbfile,
                     &tasks,
@@ -467,7 +256,7 @@ fn main() -> Result<(), ExitFailure> {
             Opt::clap().gen_completions_to("myrello", Shell::Zsh, &mut std::io::stdout());
         }
         Cmd::Db(dbcmd) => match dbcmd.cmd {
-            DbCmd::Init { force } => cmd_dbinit(dbfile, force)?,
+            DbCmd::Init { force_flag } => cmd_dbinit(dbfile, force_flag.force)?,
         },
         Cmd::Task(taskcmd) => match taskcmd.cmd {
             TaskCmd::New {

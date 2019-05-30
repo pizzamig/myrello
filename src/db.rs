@@ -655,6 +655,7 @@ mod test {
         }
     }
     proptest! {
+        #![proptest_config(ProptestConfig::with_cases(30))]
         #[test]
         fn test_dbget_priority_2(ref s in "[^uhnlm].*") {
             let temp = TempDir::new().unwrap();
@@ -666,6 +667,7 @@ mod test {
     }
 
     proptest! {
+        #![proptest_config(ProptestConfig::with_cases(4))]
         #[test]
         fn test_dbget_status_1(ref s in "todo|in_progress|done|block") {
             let temp = TempDir::new().unwrap();
@@ -676,6 +678,7 @@ mod test {
         }
     }
     proptest! {
+        #![proptest_config(ProptestConfig::with_cases(30))]
         #[test]
         fn test_dbget_status_2(ref s in "[^tidb].*") {
             let temp = TempDir::new().unwrap();
