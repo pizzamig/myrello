@@ -156,7 +156,10 @@ pub fn show_short(
     for t in tasks {
         let task_labels: Vec<String> = db::get_labels(filename, t.id).unwrap_or_default();
         if check_label(label, &task_labels)
-            && (t.status == "in_progress" || t.priority == "high" || t.priority == "urgent")
+            && (t.status == "block"
+                || t.status == "in_progress"
+                || t.priority == "high"
+                || t.priority == "urgent")
         {
             let label_str = label_to_str(&task_labels);
             let mut row =
