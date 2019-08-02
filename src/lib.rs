@@ -1,5 +1,6 @@
 pub mod cli_opt;
 pub mod db;
+pub mod op;
 pub mod task;
 
 use rusqlite::Connection;

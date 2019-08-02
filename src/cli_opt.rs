@@ -1,19 +1,7 @@
 use crate::task::ShowParams;
 use crate::task::TimeWindow;
-use std::path::PathBuf;
 use structopt::StructOpt;
-use structopt_flags::{ForceFlag, Verbose};
-
-#[derive(Debug, StructOpt)]
-pub struct Opt {
-    #[structopt(flatten)]
-    pub verbose: Verbose,
-    /// Specify the database file you want to use
-    #[structopt(short = "d", long = "db", parse(from_os_str), raw(global = "true"))]
-    pub dbfile: Option<PathBuf>,
-    #[structopt(subcommand)]
-    pub cmd: Cmd,
-}
+use structopt_flags::ForceFlag;
 
 #[derive(Debug, StructOpt)]
 pub enum Cmd {
@@ -212,7 +200,7 @@ pub struct OptTaskOnly {
 }
 
 #[cfg(test)]
-mod tests {
+mod cli_opt_tests {
     use super::*;
 
     #[test]

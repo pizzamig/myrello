@@ -1,8 +1,39 @@
+pub mod r#async;
 use super::task;
 use chrono::prelude::*;
+use failure::Fail;
 use log::trace;
 use rusqlite::{params, Connection, Error};
-use std::path::Path;
+use std::path::{Path, PathBuf};
+
+#[derive(Fail, Debug)]
+pub enum DbError {
+    #[fail(display = "The db file has no valid parent directory")]
+    DbFileNoParentDir,
+    #[fail(display = "Failed to create the directory for the db file")]
+    DbFileCreateParentDir,
+}
+
+pub fn dbfile_default() -> PathBuf {
+    let default_dir = dirs::data_dir().unwrap_or_else(|| PathBuf::from("./"));
+    default_dir.join("myrello.db")
+}
+
+pub fn dbdir_create(dbfile: &Path) -> Result<(), DbError> {
+    if let Some(dbdir) = dbfile.parent() {
+        if !dbdir.exists() {
+            trace!("creating not existing default directory {:?}", dbdir);
+            match mkdirp::mkdirp(&dbdir) {
+                Ok(_) => Ok(()),
+                Err(_) => Err(DbError::DbFileCreateParentDir),
+            }
+        } else {
+            Ok(())
+        }
+    } else {
+        Err(DbError::DbFileNoParentDir)
+    }
+}
 
 pub fn delete_tables(db: &Connection) -> Result<(), Error> {
     db.execute("DROP TABLE IF EXISTS todos;", params![])?;
@@ -455,107 +486,6 @@ pub fn dbset_reference(db: &Connection, todo_id: u32, reference: &str) -> Result
 pub fn set_reference(filename: &Path, todo_id: u32, reference: &str) -> Result<(), Error> {
     let db = get_db(filename)?;
     dbset_reference(&db, todo_id, reference)
-}
-
-//use crate::MutConn;
-use futures::{Async, Future, Poll};
-use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
-
-pub struct GetDb {
-    filename: PathBuf,
-}
-
-impl Future for GetDb {
-    type Item = Arc<Mutex<Connection>>;
-    type Error = Error;
-    fn poll(&mut self) -> Result<Async<Self::Item>, Error> {
-        match get_db(&self.filename) {
-            Ok(c) => Ok(Async::Ready(Arc::new(Mutex::new(c)))),
-            Err(e) => Err(e),
-        }
-    }
-}
-
-pub fn get_db_async(filename: &Path) -> GetDb {
-    GetDb {
-        filename: filename.to_path_buf(),
-    }
-}
-
-pub struct GetPriorityIDbyTask {
-    pub connection: Arc<Mutex<Connection>>,
-    pub todo_id: u32,
-}
-
-impl Future for GetPriorityIDbyTask {
-    type Item = u32;
-    type Error = Error;
-
-    fn poll(&mut self) -> Result<Async<Self::Item>, Error> {
-        let conn = self.connection.lock().unwrap();
-        let priority_id: u32 = conn.query_row(
-            "SELECT priority_id
-            FROM todos
-            WHERE id = ?1;",
-            params![&self.todo_id],
-            |row| Ok(row.get(0)?),
-        )?;
-        Ok(Async::Ready(priority_id))
-    }
-}
-
-struct IncreasePriority {
-    connection: Arc<Mutex<Connection>>,
-    todo_id: u32,
-    priority_id_future: Option<Box<GetPriorityIDbyTask>>,
-}
-
-impl IncreasePriority {
-    fn new(connection: Arc<Mutex<Connection>>, todo_id: u32) -> Self {
-        IncreasePriority {
-            connection,
-            todo_id,
-            priority_id_future: None,
-        }
-    }
-}
-
-impl Future for IncreasePriority {
-    type Item = ();
-    type Error = Error;
-
-    fn poll(&mut self) -> Poll<Self::Item, Error> {
-        if self.priority_id_future.is_none() {
-            self.priority_id_future = Some(Box::new(GetPriorityIDbyTask {
-                connection: self.connection.clone(),
-                todo_id: self.todo_id,
-            }));
-        }
-        let mut priority_id = match self.priority_id_future.as_mut().unwrap().poll() {
-            Ok(Async::Ready(v)) => v,
-            Ok(Async::NotReady) => return Ok(Async::NotReady),
-            Err(e) => return Err(e),
-        };
-
-        if priority_id != 1 {
-            priority_id -= 1;
-            let conn = self.connection.lock().unwrap();
-            let rc = conn.execute(
-                "UPDATE todos
-                SET priority_id = ?1
-                WHERE id = ?2;",
-                params![&priority_id, &self.todo_id],
-            )?;
-            if rc != 1 {
-                Err(Error::QueryReturnedNoRows)
-            } else {
-                Ok(Async::Ready(()))
-            }
-        } else {
-            Ok(Async::Ready(()))
-        }
-    }
 }
 
 #[cfg(test)]
