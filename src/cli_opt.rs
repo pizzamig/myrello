@@ -14,6 +14,9 @@ pub enum Cmd {
     /// Work on tasks/todos
     #[structopt(name = "task")]
     Task(TaskOpt),
+    /// Work on tasks steps
+    #[structopt(name = "step")]
+    Step(StepOpt),
     /// Generate autocompletion for zsh
     #[structopt(name = "completion")]
     Completion,
@@ -104,6 +107,7 @@ impl ShowCommonOpt {
             status,
             reference: self.reference,
             storypoints: self.hidden,
+            steps: self.hidden,
         }
     }
     pub fn merge(&mut self, to_merge: &ShowCommonOpt) {
@@ -197,6 +201,46 @@ pub struct OptTaskOnly {
     /// The task id
     #[structopt(short = "t", long = "task")]
     pub task_id: u32,
+}
+
+#[derive(Debug, StructOpt)]
+pub struct StepOpt {
+    #[structopt(subcommand)]
+    pub cmd: StepCmd,
+}
+
+#[derive(Debug, StructOpt)]
+pub enum StepCmd {
+    /// Add a new step to a task
+    #[structopt(name = "add")]
+    Add {
+        /// The working task
+        #[structopt(short = "t", long = "task")]
+        task_id: u32,
+        /// The task description
+        #[structopt(raw(required = "true"))]
+        descr: Vec<String>,
+    },
+    /// Mark a step as completed
+    #[structopt(name = "done")]
+    Done {
+        /// The working task
+        #[structopt(short = "t", long = "task")]
+        task_id: u32,
+        /// The step id
+        #[structopt(short = "s", long = "step")]
+        step_id: u32,
+    },
+    /// Delete a step
+    #[structopt(name = "delete")]
+    Delete {
+        /// The working task
+        #[structopt(short = "t", long = "task")]
+        task_id: u32,
+        /// The step id
+        #[structopt(short = "s", long = "step")]
+        step_id: u32,
+    },
 }
 
 #[cfg(test)]

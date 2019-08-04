@@ -1,6 +1,6 @@
 # myrello
 
-An local cli trello board clone
+A local cli trello board clone
 
 ```
 CREATE TABLE todos ( id INTEGER PRIMARY KEY ASC, creation_date datetime, descr varchar(128), priority_id INTEGER, status_id INTEGER, refs_id INTEGER, story_points INTEGER, completion_date datetime );
@@ -10,6 +10,7 @@ CREATE TABLE todo_label ( todo_id INTEGER, label varchar(32), PRIMARY KEY (todo_
 CREATE TABLE refs ( id INTEGER PRIMARY KEY ASC, descr varchar(1024) )
 CREATE TABLE status ( id INTEGER PRIMARY KEY ASC, descr varchar(32) )
 CREATE TABLE priority ( id INTEGER PRIMARY KEY ASC, descr varchar(16) )
+CREATE TABLE steps ( todo_id INTEGER, steps_num INTEGER, descr varchar(1024), completion_date datetime )
 ```
 
 predefined priorities:

@@ -1,5 +1,6 @@
 pub mod r#async;
 use super::task;
+use super::task::{Step, Task};
 use chrono::prelude::*;
 use failure::Fail;
 use log::trace;
@@ -43,6 +44,7 @@ pub fn delete_tables(db: &Connection) -> Result<(), Error> {
     db.execute("DROP TABLE IF EXISTS refs;", params![])?;
     db.execute("DROP TABLE IF EXISTS status;", params![])?;
     db.execute("DROP TABLE IF EXISTS priority;", params![])?;
+    db.execute("DROP TABLE IF EXISTS steps;", params![])?;
     Ok(())
 }
 
@@ -105,6 +107,11 @@ pub fn init(filename: &Path, delete: bool) -> Result<(), Error> {
         descr varchar(16));",
         params![],
     )?;
+    c.execute(
+        "CREATE TABLE steps (
+        todo_id INTEGER, steps_num INTEGER, descr varchar(1024), completion_date datetime );",
+        params![],
+    )?;
     let priority = vec!["urgent", "high", "normal", "low", "miserable"];
     for p in priority {
         match c.execute(
@@ -148,14 +155,11 @@ pub fn add_task(filename: &Path, descr: &str) -> Result<u32, Error> {
         |row| row.get(0),
     )?;
     let priority = dbget_priority_id(&db, "normal")?;
-    match db.execute(
+    db.execute(
         "INSERT INTO todos (creation_date, descr, priority_id, status_id, story_points)
         VALUES (?1, ?2, ?3, ?4, 0);",
         params![&creation_date_str, &newdescr, &priority, &status],
-    ) {
-        Ok(_) => (),
-        Err(e) => return Err(e),
-    };
+    )?;
     let new_id: u32 = db.query_row(
         "SELECT id
         FROM todos
@@ -208,7 +212,7 @@ pub fn get_done_tasks(filename: &Path) -> Result<Vec<task::TaskDone>, Error> {
     dbget_done_tasks(&db)
 }
 
-pub fn dbget_open_tasks(db: &Connection) -> Result<Vec<task::Task>, Error> {
+pub fn dbget_open_tasks(db: &Connection) -> Result<Vec<Task>, Error> {
     let mut stmt = db.prepare(
         "SELECT t.id,t.descr,p.descr,s.descr,t.story_points
         FROM todos t
@@ -251,8 +255,7 @@ pub fn get_labels(filename: &Path, todo_id: u32) -> Result<Vec<String>, Error> {
     dbget_labels(&db, todo_id)
 }
 
-pub fn get_refs(filename: &Path, todo_id: u32) -> Result<String, Error> {
-    let db = get_db(filename)?;
+pub fn dbget_refs(db: &Connection, todo_id: u32) -> Result<String, Error> {
     trace!("Query the refs_id from todos");
     let refs_id: u32 = db.query_row(
         "SELECT refs_id
@@ -274,6 +277,10 @@ pub fn get_refs(filename: &Path, todo_id: u32) -> Result<String, Error> {
     )?;
     Ok(refs)
 }
+pub fn get_refs(filename: &Path, todo_id: u32) -> Result<String, Error> {
+    let db = get_db(filename)?;
+    dbget_refs(&db, todo_id)
+}
 
 pub fn complete_task(filename: &Path, todo_id: u32) -> Result<(), Error> {
     let db = get_db(filename)?;
@@ -292,8 +299,7 @@ pub fn complete_task(filename: &Path, todo_id: u32) -> Result<(), Error> {
     }
 }
 
-pub fn delete_task(filename: &Path, todo_id: u32) -> Result<(), Error> {
-    let db = get_db(filename)?;
+pub fn delete_task(db: &Connection, todo_id: u32) -> Result<(), Error> {
     let rc = db.execute(
         "DELETE FROM todos
         WHERE id = ?1;",
@@ -450,6 +456,91 @@ pub fn dbincrease_priority(db: &Connection, todo_id: u32) -> Result<(), Error> {
 pub fn increase_priority(filename: &Path, todo_id: u32) -> Result<(), Error> {
     let db = get_db(filename)?;
     dbincrease_priority(&db, todo_id)
+}
+
+pub fn dbadd_step(db: &Connection, todo_id: u32, step_description: &str) -> Result<u32, Error> {
+    let steps = dbget_steps(db, todo_id)?;
+    let new_step = if steps.is_empty() {
+        0
+    } else {
+        steps
+            .iter()
+            .max_by(|a, b| a.step_id.cmp(&b.step_id))
+            .unwrap()
+            .step_id
+            + 1
+    };
+    db.execute(
+        "INSERT INTO steps (todo_id, steps_num, descr)
+        VALUES (?1, ?2, ?3);",
+        params![&todo_id, &new_step, &step_description],
+    )?;
+    Ok(new_step)
+}
+
+pub fn dbget_steps(db: &Connection, todo_id: u32) -> Result<Vec<Step>, Error> {
+    let mut stmt = db.prepare(
+        "SELECT todo_id,steps_num,descr
+        FROM steps
+        WHERE completion_date IS NULL AND todo_id = ?1
+        ORDER BY steps_num ASC;",
+    )?;
+    let query_iter = stmt.query_map(params![&todo_id], |row| {
+        Ok(Step {
+            todo_id: row.get(0)?,
+            step_id: row.get(1)?,
+            descr: row.get(2)?,
+            completion_date: "".to_string(),
+        })
+    })?;
+    let result = query_iter.map(std::result::Result::unwrap).collect();
+    Ok(result)
+}
+
+pub fn dbcomplete_step(db: &Connection, todo_id: u32, step_id: u32) -> Result<(), Error> {
+    let completion_date: DateTime<Utc> = Utc::now();
+    let completion_date_str = completion_date.format("%Y-%m-%d %H:%M:%S").to_string();
+    let rc = db.execute(
+        "UPDATE steps
+        SET completion_date = ?1
+        WHERE todo_id = ?2 AND steps_num = ?3;",
+        params![&completion_date_str, &todo_id, &step_id],
+    )?;
+    if rc != 1 {
+        Err(Error::QueryReturnedNoRows)
+    } else {
+        Ok(())
+    }
+}
+
+pub fn dbcomplete_steps(db: &Connection, todo_id: u32) -> Result<(), Error> {
+    let completion_date: DateTime<Utc> = Utc::now();
+    let completion_date_str = completion_date.format("%Y-%m-%d %H:%M:%S").to_string();
+    db.execute(
+        "UPDATE steps
+        SET completion_date = ?1
+        WHERE completion_date IS NULL AND todo_id = ?2 ;",
+        params![&completion_date_str, &todo_id],
+    )?;
+    Ok(())
+}
+
+pub fn dbdelete_step(db: &Connection, todo_id: u32, step_id: u32) -> Result<(), Error> {
+    db.execute(
+        "DELETE FROM steps
+        WHERE todo_id = ?1 AND steps_num = ?2;",
+        &[&todo_id, &step_id],
+    )?;
+    Ok(())
+}
+
+pub fn dbdelete_steps(db: &Connection, todo_id: u32) -> Result<(), Error> {
+    db.execute(
+        "DELETE FROM steps
+        WHERE todo_id = ?1;",
+        &[&todo_id],
+    )?;
+    Ok(())
 }
 
 pub fn dbset_reference(db: &Connection, todo_id: u32, reference: &str) -> Result<(), Error> {

@@ -3,6 +3,7 @@ use chrono::prelude::*;
 use chrono::Duration;
 use prettytable::cell::Cell;
 use prettytable::{cell, row, Attr, Table};
+use rusqlite::Connection;
 use std::collections::HashMap;
 use std::path::Path;
 use strum_macros::{Display, EnumString};
@@ -36,6 +37,14 @@ pub enum TimeWindow {
     Month,
 }
 
+#[derive(Debug)]
+pub struct Step {
+    pub todo_id: u32,
+    pub step_id: u32,
+    pub descr: String,
+    pub completion_date: String,
+}
+
 fn check_label(labels: &[String], task_labels: &[String]) -> bool {
     if labels.is_empty() {
         return true;
@@ -65,6 +74,7 @@ pub struct ShowParams<'a> {
     pub reference: bool,
     pub status: &'a str,
     pub storypoints: bool,
+    pub steps: bool,
 }
 
 fn show_stats(stats: &HashMap<&str, u64>) {
@@ -88,12 +98,27 @@ fn set_title(table: &mut Table, param: &ShowParams) {
     table.set_titles(title);
 }
 
+fn show_steps(db: &Connection, table: &mut Table, task_id: u32, param: &ShowParams) {
+    let steps = db::dbget_steps(db, task_id).expect("Error occured when getting steps");
+    for step in steps {
+        let mut row = row!["", b -> "Step", &step.step_id.to_string(), "", &step.descr];
+        if param.storypoints {
+            row.add_cell(Cell::new(""));
+        }
+        if param.reference {
+            row.add_cell(Cell::new(""));
+        }
+        table.add_row(row);
+    }
+}
+
 pub fn show2(filename: &Path, tasks: &[Task], param: ShowParams) {
     let mut stats = HashMap::new();
     let mut table = Table::new();
+    let db = db::get_db(filename).expect("Failed to open myrello DB");
     set_title(&mut table, &param);
     for t in tasks {
-        let task_labels: Vec<String> = db::get_labels(filename, t.id).unwrap_or_default();
+        let task_labels: Vec<String> = db::dbget_labels(&db, t.id).unwrap_or_default();
         if check_label(param.label, &task_labels)
             && (param.status == "" || t.status == param.status)
         {
@@ -102,12 +127,15 @@ pub fn show2(filename: &Path, tasks: &[Task], param: ShowParams) {
                 row.add_cell(Cell::new(&t.storypoints.to_string()));
             }
             if param.reference {
-                let reference_str = db::get_refs(filename, t.id).unwrap_or_default();
+                let reference_str = db::dbget_refs(&db, t.id).unwrap_or_default();
                 row.add_cell(Cell::new(&reference_str));
             }
             table.add_row(row);
             let counter = stats.entry(t.status.as_str()).or_insert(0u64);
             *counter += 1;
+            if param.steps {
+                show_steps(&db, &mut table, t.id, &param);
+            }
         }
     }
     table.printstd();
@@ -130,6 +158,7 @@ pub fn show1task(filename: &Path, task_id: u32) {
                 status: "",
                 reference: true,
                 storypoints: true,
+                steps: true,
             },
         );
     }
@@ -151,6 +180,7 @@ pub fn show_short(
             status: "",
             reference,
             storypoints,
+            steps: true,
         },
     );
     for t in tasks {
@@ -199,6 +229,7 @@ pub fn show_done(
             status: "",
             reference,
             storypoints,
+            steps: false,
         },
     );
     for t in tasks {

@@ -4,7 +4,7 @@ use exitfailure::ExitFailure;
 use failure::ResultExt;
 use log::{debug, error, info, trace, warn};
 use myrello::cli_opt::{Cmd, DbCmd, TaskCmd};
-use myrello::cli_opt::{ShowCmd, ShowOpt};
+use myrello::cli_opt::{ShowCmd, ShowOpt, StepCmd};
 use myrello::db;
 use myrello::task;
 use myrello::task::TimeWindow;
@@ -166,6 +166,8 @@ fn cmd_task_new(new_task: TaskCmd, dbfile: &std::path::Path) -> Result<(), ExitF
                 )
             })?;
         }
+        let db_connection = db::get_db(&dbfile)?;
+        db::dbadd_step(&db_connection, new_id, "start")?;
         println!("Create a new task, with id {}", new_id);
     }
     Ok(())
@@ -308,8 +310,12 @@ fn main() -> Result<(), ExitFailure> {
             }
             TaskCmd::Start(task) => {
                 info!("Start task {}", task.task_id);
-                db::set_status(&dbfile, task.task_id, "in_progress")
+                let db_connection = db::get_db(&dbfile)?;
+                db::dbset_status(&db_connection, task.task_id, "in_progress")
                     .with_context(|_| format!("Failed to start task {}", task.task_id))?;
+                db::dbcomplete_step(&db_connection, task.task_id, 0).with_context(|_| {
+                    format!("Failed to close the first step of task {}", task.task_id)
+                })?;
             }
             TaskCmd::Block(task) => {
                 info!("Block task {}", task.task_id);
@@ -321,16 +327,45 @@ fn main() -> Result<(), ExitFailure> {
                 db::complete_task(&dbfile, task.task_id)?;
                 db::set_status(&dbfile, task.task_id, "done")
                     .with_context(|_| format!("Failed to complete task {}", task.task_id))?;
+                let db_connection = db::get_db(&dbfile)?;
+                db::dbcomplete_steps(&db_connection, task.task_id)?;
             }
             TaskCmd::Delete(task) => {
                 info!("Delete task {}", task.task_id);
-                db::delete_task(&dbfile, task.task_id)
+                let db_connection = db::get_db(&dbfile)?;
+                db::dbdelete_steps(&db_connection, task.task_id)
+                    .with_context(|_| format!("Failed to delete task {} steps", task.task_id))?;
+                db::delete_task(&db_connection, task.task_id)
                     .with_context(|_| format!("Failed to delete task {}", task.task_id))?;
             }
             TaskCmd::Prio(task) => {
                 info!("Increase priority of task {}", task.task_id);
                 db::increase_priority(&dbfile, task.task_id).with_context(|_| {
                     format!("Faile to increase priority of task {}", task.task_id)
+                })?;
+            }
+        },
+        Cmd::Step(stepcmd) => match stepcmd.cmd {
+            StepCmd::Add { task_id, descr } => {
+                let text = descr_to_string(&descr);
+                info!("add a step to task {} with description {}", task_id, text);
+                let db_connection = db::get_db(&dbfile)?;
+                let new_step_id = db::dbadd_step(&db_connection, task_id, &text)
+                    .with_context(|_| format!("Failed to add a step to task {}", task_id))?;
+                println!("Create a new sted, with id {}", new_step_id);
+            }
+            StepCmd::Done { task_id, step_id } => {
+                info!("Done step {} of task {}", step_id, task_id);
+                let db_connection = db::get_db(&dbfile)?;
+                db::dbcomplete_step(&db_connection, task_id, step_id).with_context(|_| {
+                    format!("Failed to close the step {} of task {}", step_id, task_id)
+                })?;
+            }
+            StepCmd::Delete { task_id, step_id } => {
+                info!("Done step {} of task {}", step_id, task_id);
+                let db_connection = db::get_db(&dbfile)?;
+                db::dbdelete_step(&db_connection, task_id, step_id).with_context(|_| {
+                    format!("Failed to close the step {} of task {}", step_id, task_id)
                 })?;
             }
         },
