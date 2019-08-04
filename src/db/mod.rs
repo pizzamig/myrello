@@ -24,10 +24,9 @@ pub fn dbdir_create(dbfile: &Path) -> Result<(), DbError> {
     if let Some(dbdir) = dbfile.parent() {
         if !dbdir.exists() {
             trace!("creating not existing default directory {:?}", dbdir);
-            match mkdirp::mkdirp(&dbdir) {
-                Ok(_) => Ok(()),
-                Err(_) => Err(DbError::DbFileCreateParentDir),
-            }
+            mkdirp::mkdirp(&dbdir)
+                .map(|_| ())
+                .map_err(|_| DbError::DbFileCreateParentDir)
         } else {
             Ok(())
         }
@@ -141,8 +140,7 @@ pub fn get_db(filename: &Path) -> Result<Connection, Error> {
     Connection::open(filename)
 }
 
-pub fn add_task(filename: &Path, descr: &str) -> Result<u32, Error> {
-    let db = get_db(filename)?;
+pub fn add_task(db: &Connection, descr: &str) -> Result<u32, Error> {
     let creation_date: DateTime<Utc> = Utc::now();
     let creation_date_str = creation_date.format("%Y-%m-%d %H:%M:%S").to_string();
     let mut newdescr = String::from(descr.trim_end());
@@ -154,7 +152,7 @@ pub fn add_task(filename: &Path, descr: &str) -> Result<u32, Error> {
         params![],
         |row| row.get(0),
     )?;
-    let priority = dbget_priority_id(&db, "normal")?;
+    let priority = get_priority_id(&db, "normal")?;
     db.execute(
         "INSERT INTO todos (creation_date, descr, priority_id, status_id, story_points)
         VALUES (?1, ?2, ?3, ?4, 0);",
@@ -170,8 +168,7 @@ pub fn add_task(filename: &Path, descr: &str) -> Result<u32, Error> {
     Ok(new_id)
 }
 
-pub fn add_labels(filename: &Path, todo_id: u32, labels: &[String]) -> Result<(), Error> {
-    let db = get_db(filename)?;
+pub fn add_labels(db: &Connection, todo_id: u32, labels: &[String]) -> Result<(), Error> {
     for l in labels {
         let mut ll = String::from(l.trim());
         ll.truncate(256);
@@ -187,7 +184,7 @@ pub fn add_labels(filename: &Path, todo_id: u32, labels: &[String]) -> Result<()
     Ok(())
 }
 
-pub fn dbget_done_tasks(db: &Connection) -> Result<Vec<task::TaskDone>, Error> {
+pub fn get_done_tasks(db: &Connection) -> Result<Vec<task::TaskDone>, Error> {
     let mut stmt = db.prepare(
         "SELECT t.id,t.descr,t.completion_date, t.story_points
         FROM todos t
@@ -207,12 +204,7 @@ pub fn dbget_done_tasks(db: &Connection) -> Result<Vec<task::TaskDone>, Error> {
     Ok(rc)
 }
 
-pub fn get_done_tasks(filename: &Path) -> Result<Vec<task::TaskDone>, Error> {
-    let db = get_db(filename)?;
-    dbget_done_tasks(&db)
-}
-
-pub fn dbget_open_tasks(db: &Connection) -> Result<Vec<Task>, Error> {
+pub fn get_open_tasks(db: &Connection) -> Result<Vec<Task>, Error> {
     let mut stmt = db.prepare(
         "SELECT t.id,t.descr,p.descr,s.descr,t.story_points
         FROM todos t
@@ -234,12 +226,7 @@ pub fn dbget_open_tasks(db: &Connection) -> Result<Vec<Task>, Error> {
     Ok(rc)
 }
 
-pub fn get_open_tasks(filename: &Path) -> Result<Vec<task::Task>, Error> {
-    let db = get_db(filename)?;
-    dbget_open_tasks(&db)
-}
-
-pub fn dbget_labels(db: &Connection, todo_id: u32) -> Result<Vec<String>, Error> {
+pub fn get_labels(db: &Connection, todo_id: u32) -> Result<Vec<String>, Error> {
     let mut stmt = db.prepare(
         "SELECT label
         FROM todo_label
@@ -250,12 +237,7 @@ pub fn dbget_labels(db: &Connection, todo_id: u32) -> Result<Vec<String>, Error>
     Ok(labels)
 }
 
-pub fn get_labels(filename: &Path, todo_id: u32) -> Result<Vec<String>, Error> {
-    let db = get_db(filename)?;
-    dbget_labels(&db, todo_id)
-}
-
-pub fn dbget_refs(db: &Connection, todo_id: u32) -> Result<String, Error> {
+pub fn get_refs(db: &Connection, todo_id: u32) -> Result<String, Error> {
     trace!("Query the refs_id from todos");
     let refs_id: u32 = db.query_row(
         "SELECT refs_id
@@ -277,13 +259,8 @@ pub fn dbget_refs(db: &Connection, todo_id: u32) -> Result<String, Error> {
     )?;
     Ok(refs)
 }
-pub fn get_refs(filename: &Path, todo_id: u32) -> Result<String, Error> {
-    let db = get_db(filename)?;
-    dbget_refs(&db, todo_id)
-}
 
-pub fn complete_task(filename: &Path, todo_id: u32) -> Result<(), Error> {
-    let db = get_db(filename)?;
+pub fn complete_task(db: &Connection, todo_id: u32) -> Result<(), Error> {
     let completion_date: DateTime<Utc> = Utc::now();
     let completion_date_str = completion_date.format("%Y-%m-%d %H:%M:%S").to_string();
     let rc = db.execute(
@@ -317,7 +294,7 @@ pub fn delete_task(db: &Connection, todo_id: u32) -> Result<(), Error> {
     }
 }
 
-pub fn dbget_priority_id(db: &Connection, priority: &str) -> Result<u32, Error> {
+pub fn get_priority_id(db: &Connection, priority: &str) -> Result<u32, Error> {
     trace!("get priority id ({})", priority);
     let priority_id: u32 = db.query_row(
         "SELECT id
@@ -329,7 +306,7 @@ pub fn dbget_priority_id(db: &Connection, priority: &str) -> Result<u32, Error> 
     Ok(priority_id)
 }
 
-pub fn dbget_status_id(db: &Connection, status: &str) -> Result<u32, Error> {
+pub fn get_status_id(db: &Connection, status: &str) -> Result<u32, Error> {
     trace!("get status id ({})", status);
     let status_id: u32 = db.query_row(
         "SELECT id
@@ -341,14 +318,8 @@ pub fn dbget_status_id(db: &Connection, status: &str) -> Result<u32, Error> {
     Ok(status_id)
 }
 
-#[allow(dead_code)]
-pub fn get_priority_id(filename: &Path, priority: &str) -> Result<u32, Error> {
-    let db = get_db(filename)?;
-    dbget_priority_id(&db, priority)
-}
-
-pub fn dbset_priority(db: &Connection, todo_id: u32, priority: &str) -> Result<(), Error> {
-    let priority_id = dbget_priority_id(&db, priority)?;
+pub fn set_priority(db: &Connection, todo_id: u32, priority: &str) -> Result<(), Error> {
+    let priority_id = get_priority_id(&db, priority)?;
     let rc = db.execute(
         "UPDATE todos
         SET priority_id = ?1
@@ -362,13 +333,8 @@ pub fn dbset_priority(db: &Connection, todo_id: u32, priority: &str) -> Result<(
     }
 }
 
-pub fn set_priority(filename: &Path, todo_id: u32, priority: &str) -> Result<(), Error> {
-    let db = get_db(filename)?;
-    dbset_priority(&db, todo_id, priority)
-}
-
-pub fn dbset_status(db: &Connection, todo_id: u32, status: &str) -> Result<(), Error> {
-    let status_id = dbget_status_id(&db, status)?;
+pub fn set_status(db: &Connection, todo_id: u32, status: &str) -> Result<(), Error> {
+    let status_id = get_status_id(&db, status)?;
     let rc = db.execute(
         "UPDATE todos
         SET status_id = ?1
@@ -382,12 +348,7 @@ pub fn dbset_status(db: &Connection, todo_id: u32, status: &str) -> Result<(), E
     }
 }
 
-pub fn set_status(filename: &Path, todo_id: u32, status: &str) -> Result<(), Error> {
-    let db = get_db(filename)?;
-    dbset_status(&db, todo_id, status)
-}
-
-pub fn dbset_descr(db: &Connection, todo_id: u32, descr: &str) -> Result<(), Error> {
+pub fn set_descr(db: &Connection, todo_id: u32, descr: &str) -> Result<(), Error> {
     let mut newdescr = String::from(descr.trim_end());
     newdescr.truncate(128);
     let rc = db.execute(
@@ -403,12 +364,7 @@ pub fn dbset_descr(db: &Connection, todo_id: u32, descr: &str) -> Result<(), Err
     }
 }
 
-pub fn set_descr(filename: &Path, todo_id: u32, descr: &str) -> Result<(), Error> {
-    let db = get_db(filename)?;
-    dbset_descr(&db, todo_id, descr)
-}
-
-pub fn dbset_storypoint(db: &Connection, todo_id: u32, storypoint: u32) -> Result<(), Error> {
+pub fn set_storypoint(db: &Connection, todo_id: u32, storypoint: u32) -> Result<(), Error> {
     let rc = db.execute(
         "UPDATE todos
         SET story_points = ?1
@@ -422,12 +378,7 @@ pub fn dbset_storypoint(db: &Connection, todo_id: u32, storypoint: u32) -> Resul
     }
 }
 
-pub fn set_storypoint(filename: &Path, todo_id: u32, storypoint: u32) -> Result<(), Error> {
-    let db = get_db(filename)?;
-    dbset_storypoint(&db, todo_id, storypoint)
-}
-
-pub fn dbincrease_priority(db: &Connection, todo_id: u32) -> Result<(), Error> {
+pub fn increase_priority(db: &Connection, todo_id: u32) -> Result<(), Error> {
     let priority_id: u32 = db.query_row(
         "SELECT priority_id
         FROM todos
@@ -453,13 +404,8 @@ pub fn dbincrease_priority(db: &Connection, todo_id: u32) -> Result<(), Error> {
     }
 }
 
-pub fn increase_priority(filename: &Path, todo_id: u32) -> Result<(), Error> {
-    let db = get_db(filename)?;
-    dbincrease_priority(&db, todo_id)
-}
-
-pub fn dbadd_step(db: &Connection, todo_id: u32, step_description: &str) -> Result<u32, Error> {
-    let steps = dbget_steps(db, todo_id)?;
+pub fn add_step(db: &Connection, todo_id: u32, step_description: &str) -> Result<u32, Error> {
+    let steps = get_steps(db, todo_id)?;
     let new_step = if steps.is_empty() {
         0
     } else {
@@ -478,7 +424,29 @@ pub fn dbadd_step(db: &Connection, todo_id: u32, step_description: &str) -> Resu
     Ok(new_step)
 }
 
-pub fn dbget_steps(db: &Connection, todo_id: u32) -> Result<Vec<Step>, Error> {
+pub fn get_step(db: &Connection, todo_id: u32, step_id: u32) -> Result<Step, Error> {
+    let mut stmt = db.prepare(
+        "SELECT todo_id,steps_num,descr
+        FROM steps
+        WHERE todo_id = ?1 AND steps_num = ?2 ;",
+    )?;
+    let query_iter = stmt.query_map(params![&todo_id, &step_id], |row| {
+        Ok(Step {
+            todo_id: row.get(0)?,
+            step_id: row.get(1)?,
+            descr: row.get(2)?,
+            completion_date: "".to_string(),
+        })
+    })?;
+    let mut query_vec: Vec<_> = query_iter.map(std::result::Result::unwrap).collect();
+    if query_vec.is_empty() {
+        Err(Error::QueryReturnedNoRows)
+    } else {
+        Ok(query_vec.pop().unwrap())
+    }
+}
+
+pub fn get_steps(db: &Connection, todo_id: u32) -> Result<Vec<Step>, Error> {
     let mut stmt = db.prepare(
         "SELECT todo_id,steps_num,descr
         FROM steps
@@ -497,7 +465,7 @@ pub fn dbget_steps(db: &Connection, todo_id: u32) -> Result<Vec<Step>, Error> {
     Ok(result)
 }
 
-pub fn dbcomplete_step(db: &Connection, todo_id: u32, step_id: u32) -> Result<(), Error> {
+pub fn complete_step(db: &Connection, todo_id: u32, step_id: u32) -> Result<(), Error> {
     let completion_date: DateTime<Utc> = Utc::now();
     let completion_date_str = completion_date.format("%Y-%m-%d %H:%M:%S").to_string();
     let rc = db.execute(
@@ -513,7 +481,7 @@ pub fn dbcomplete_step(db: &Connection, todo_id: u32, step_id: u32) -> Result<()
     }
 }
 
-pub fn dbcomplete_steps(db: &Connection, todo_id: u32) -> Result<(), Error> {
+pub fn complete_steps(db: &Connection, todo_id: u32) -> Result<(), Error> {
     let completion_date: DateTime<Utc> = Utc::now();
     let completion_date_str = completion_date.format("%Y-%m-%d %H:%M:%S").to_string();
     db.execute(
@@ -525,7 +493,7 @@ pub fn dbcomplete_steps(db: &Connection, todo_id: u32) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn dbdelete_step(db: &Connection, todo_id: u32, step_id: u32) -> Result<(), Error> {
+pub fn delete_step(db: &Connection, todo_id: u32, step_id: u32) -> Result<(), Error> {
     db.execute(
         "DELETE FROM steps
         WHERE todo_id = ?1 AND steps_num = ?2;",
@@ -534,7 +502,7 @@ pub fn dbdelete_step(db: &Connection, todo_id: u32, step_id: u32) -> Result<(), 
     Ok(())
 }
 
-pub fn dbdelete_steps(db: &Connection, todo_id: u32) -> Result<(), Error> {
+pub fn delete_steps(db: &Connection, todo_id: u32) -> Result<(), Error> {
     db.execute(
         "DELETE FROM steps
         WHERE todo_id = ?1;",
@@ -543,7 +511,7 @@ pub fn dbdelete_steps(db: &Connection, todo_id: u32) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn dbset_reference(db: &Connection, todo_id: u32, reference: &str) -> Result<(), Error> {
+pub fn set_reference(db: &Connection, todo_id: u32, reference: &str) -> Result<(), Error> {
     let mut newref = String::from(reference.trim_end());
     newref.truncate(1024);
     let rc = db.execute(
@@ -572,11 +540,6 @@ pub fn dbset_reference(db: &Connection, todo_id: u32, reference: &str) -> Result
     } else {
         Ok(())
     }
-}
-
-pub fn set_reference(filename: &Path, todo_id: u32, reference: &str) -> Result<(), Error> {
-    let db = get_db(filename)?;
-    dbset_reference(&db, todo_id, reference)
 }
 
 #[cfg(test)]
@@ -667,46 +630,46 @@ mod test {
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(5))]
         #[test]
-        fn test_dbget_priority_1(ref s in "urgent|high|normal|low|miserable") {
+        fn test_get_priority_1(ref s in "urgent|high|normal|low|miserable") {
             let temp = TempDir::new().unwrap();
             let dbfile = temp.child("dbtest");
             init(dbfile.path(), true).unwrap();
             let db = get_db(dbfile.path()).unwrap();
-            dbget_priority_id(&db, s).unwrap();
+            get_priority_id(&db, s).unwrap();
         }
     }
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(30))]
         #[test]
-        fn test_dbget_priority_2(ref s in "[^uhnlm].*") {
+        fn test_get_priority_2(ref s in "[^uhnlm].*") {
             let temp = TempDir::new().unwrap();
             let dbfile = temp.child("dbtest");
             init(dbfile.path(), true).unwrap();
             let db = get_db(dbfile.path()).unwrap();
-            assert_eq!( dbget_priority_id(&db, s).is_err(), true);
+            assert_eq!( get_priority_id(&db, s).is_err(), true);
         }
     }
 
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(4))]
         #[test]
-        fn test_dbget_status_1(ref s in "todo|in_progress|done|block") {
+        fn test_get_status_1(ref s in "todo|in_progress|done|block") {
             let temp = TempDir::new().unwrap();
             let dbfile = temp.child("dbtest");
             init(dbfile.path(), true).unwrap();
             let db = get_db(dbfile.path()).unwrap();
-            dbget_status_id(&db, s).unwrap();
+            get_status_id(&db, s).unwrap();
         }
     }
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(30))]
         #[test]
-        fn test_dbget_status_2(ref s in "[^tidb].*") {
+        fn test_get_status_2(ref s in "[^tidb].*") {
             let temp = TempDir::new().unwrap();
             let dbfile = temp.child("dbtest");
             init(dbfile.path(), true).unwrap();
             let db = get_db(dbfile.path()).unwrap();
-            assert_eq!( dbget_status_id(&db, s).is_err(), true);
+            assert_eq!( get_status_id(&db, s).is_err(), true);
         }
     }
 }

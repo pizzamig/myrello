@@ -99,7 +99,7 @@ fn set_title(table: &mut Table, param: &ShowParams) {
 }
 
 fn show_steps(db: &Connection, table: &mut Table, task_id: u32, param: &ShowParams) {
-    let steps = db::dbget_steps(db, task_id).expect("Error occured when getting steps");
+    let steps = db::get_steps(db, task_id).expect("Error occured when getting steps");
     for step in steps {
         let mut row = row!["", b -> "Step", &step.step_id.to_string(), "", &step.descr];
         if param.storypoints {
@@ -112,13 +112,12 @@ fn show_steps(db: &Connection, table: &mut Table, task_id: u32, param: &ShowPara
     }
 }
 
-pub fn show2(filename: &Path, tasks: &[Task], param: ShowParams) {
+pub fn show2(db: &Connection, tasks: &[Task], param: ShowParams) {
     let mut stats = HashMap::new();
     let mut table = Table::new();
-    let db = db::get_db(filename).expect("Failed to open myrello DB");
     set_title(&mut table, &param);
     for t in tasks {
-        let task_labels: Vec<String> = db::dbget_labels(&db, t.id).unwrap_or_default();
+        let task_labels: Vec<String> = db::get_labels(&db, t.id).unwrap_or_default();
         if check_label(param.label, &task_labels)
             && (param.status == "" || t.status == param.status)
         {
@@ -127,7 +126,7 @@ pub fn show2(filename: &Path, tasks: &[Task], param: ShowParams) {
                 row.add_cell(Cell::new(&t.storypoints.to_string()));
             }
             if param.reference {
-                let reference_str = db::dbget_refs(&db, t.id).unwrap_or_default();
+                let reference_str = db::get_refs(&db, t.id).unwrap_or_default();
                 row.add_cell(Cell::new(&reference_str));
             }
             table.add_row(row);
@@ -146,12 +145,12 @@ pub fn show2(filename: &Path, tasks: &[Task], param: ShowParams) {
     }
 }
 
-pub fn show1task(filename: &Path, task_id: u32) {
-    let tasks = db::get_open_tasks(&filename).unwrap_or_default();
+pub fn show1task(db: &Connection, task_id: u32) {
+    let tasks = db::get_open_tasks(db).unwrap_or_default();
     let task: Vec<_> = tasks.iter().filter(|x| x.id == task_id).cloned().collect();
     if !task.is_empty() {
         show2(
-            &filename,
+            db,
             &task,
             ShowParams {
                 label: &[],
@@ -165,7 +164,7 @@ pub fn show1task(filename: &Path, task_id: u32) {
 }
 
 pub fn show_short(
-    filename: &Path,
+    db: &Connection,
     tasks: &[Task],
     label: &[String],
     reference: bool,
@@ -184,7 +183,7 @@ pub fn show_short(
         },
     );
     for t in tasks {
-        let task_labels: Vec<String> = db::get_labels(filename, t.id).unwrap_or_default();
+        let task_labels: Vec<String> = db::get_labels(db, t.id).unwrap_or_default();
         if check_label(label, &task_labels)
             && (t.status == "block"
                 || t.status == "in_progress"
@@ -198,7 +197,7 @@ pub fn show_short(
                 row.add_cell(Cell::new(&t.storypoints.to_string()));
             }
             if reference {
-                let reference_str = db::get_refs(filename, t.id).unwrap_or_default();
+                let reference_str = db::get_refs(db, t.id).unwrap_or_default();
                 row.add_cell(Cell::new(&reference_str));
             }
             table.add_row(row);
@@ -213,7 +212,7 @@ pub fn show_short(
 }
 
 pub fn show_done(
-    filename: &Path,
+    db: &Connection,
     tasks: &[TaskDone],
     label: &[String],
     timewindow: &TimeWindow,
@@ -244,7 +243,7 @@ pub fn show_done(
             TimeWindow::Month => Duration::weeks(4),
         };
         if duration < max_duration {
-            let task_labels: Vec<String> = db::get_labels(filename, t.id).unwrap_or_default();
+            let task_labels: Vec<String> = db::get_labels(db, t.id).unwrap_or_default();
             if check_label(label, &task_labels) {
                 let label_str = label_to_str(&task_labels);
                 let mut row =
@@ -253,7 +252,7 @@ pub fn show_done(
                     row.add_cell(Cell::new(&t.storypoints.to_string()));
                 }
                 if reference {
-                    let reference_str = db::get_refs(filename, t.id).unwrap_or_default();
+                    let reference_str = db::get_refs(db, t.id).unwrap_or_default();
                     row.add_cell(Cell::new(&reference_str));
                 }
                 table.add_row(row);
