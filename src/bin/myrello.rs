@@ -1,5 +1,3 @@
-#![cfg_attr(feature = "nightly", feature(tool_lints))]
-#[allow(unused_imports)]
 use exitfailure::ExitFailure;
 use failure::ResultExt;
 use log::{debug, error, info, trace, warn};

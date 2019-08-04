@@ -5,7 +5,6 @@ use prettytable::cell::Cell;
 use prettytable::{cell, row, Attr, Table};
 use rusqlite::Connection;
 use std::collections::HashMap;
-use std::path::Path;
 use strum_macros::{Display, EnumString};
 
 #[derive(Debug, Clone)]
