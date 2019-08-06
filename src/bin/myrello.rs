@@ -95,11 +95,9 @@ fn cmd_show(mut showopt: ShowOpt, dbfile: &std::path::Path) -> Result<(), ExitFa
             ShowCmd::Work { show_opts } => {
                 let tasks = db::get_open_tasks(&db_connection)?;
                 showopt.show_opts.merge(&show_opts);
-                task::show2(
-                    &db_connection,
-                    &tasks,
-                    showopt.show_opts.as_show_params("in_progress"),
-                );
+                let mut show_param = showopt.show_opts.as_show_params("in_progress");
+                show_param.steps = true;
+                task::show2(&db_connection, &tasks, show_param);
             }
             ShowCmd::Done {
                 show_opts,

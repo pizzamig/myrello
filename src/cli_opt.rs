@@ -98,6 +98,9 @@ pub struct ShowCommonOpt {
     /// Show references as well
     #[structopt(short = "r", long = "reference")]
     pub reference: bool,
+    /// Show steps as well
+    #[structopt(short = "s", long = "steps")]
+    pub steps: bool,
 }
 
 impl ShowCommonOpt {
@@ -107,7 +110,7 @@ impl ShowCommonOpt {
             status,
             reference: self.reference,
             storypoints: self.hidden,
-            steps: self.hidden,
+            steps: self.steps,
         }
     }
     pub fn merge(&mut self, to_merge: &ShowCommonOpt) {
