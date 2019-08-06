@@ -220,16 +220,14 @@ pub fn show_done(
 ) {
     let mut stats = HashMap::new();
     let mut table = Table::new();
-    set_title(
-        &mut table,
-        &ShowParams {
-            label,
-            status: "",
-            reference,
-            storypoints,
-            steps: false,
-        },
-    );
+    let mut title = row![b => "Id", "Labels", "Description", "Completed at"];
+    if storypoints {
+        title.add_cell(Cell::new("Story points").with_style(Attr::Bold));
+    }
+    if reference {
+        title.add_cell(Cell::new("Reference").with_style(Attr::Bold));;
+    }
+    table.set_titles(title);
     for t in tasks {
         let now: DateTime<Utc> = Utc::now();
         let completed: NaiveDateTime =
