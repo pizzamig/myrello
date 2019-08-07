@@ -405,16 +405,15 @@ pub fn increase_priority(db: &Connection, todo_id: u32) -> Result<(), Error> {
 }
 
 pub fn add_step(db: &Connection, todo_id: u32, step_description: &str) -> Result<u32, Error> {
-    let steps = get_steps(db, todo_id)?;
-    let new_step = if steps.is_empty() {
-        0
-    } else {
-        steps
-            .iter()
-            .max_by(|a, b| a.step_id.cmp(&b.step_id))
-            .unwrap()
-            .step_id
-            + 1
+    let new_step: u32 = match db.query_row(
+        "SELECT MAX(steps_num)
+        FROM steps
+        WHERE todo_id = ?1;",
+        params![&todo_id],
+        |row| row.get(0) as Result<u32, _>,
+    ) {
+        Ok(max_step) => max_step + 1,
+        Err(_) => 0,
     };
     db.execute(
         "INSERT INTO steps (todo_id, steps_num, descr)
