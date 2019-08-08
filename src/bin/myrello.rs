@@ -357,7 +357,7 @@ fn main() -> Result<(), ExitFailure> {
                     info!("add a step to task {} with description {}", task_id, text);
                     let new_step_id = db::add_step(&db_connection, task_id, &text)
                         .with_context(|_| format!("Failed to add a step to task {}", task_id))?;
-                    println!("Create a new sted, with id {}", new_step_id);
+                    println!("Create a new step, with id {}", new_step_id);
                 }
                 StepCmd::Done { task_id, step_id } => {
                     info!("Done step {} of task {}", step_id, task_id);
