@@ -171,16 +171,14 @@ pub fn show_short(
 ) {
     let mut stats = HashMap::new();
     let mut table = Table::new();
-    set_title(
-        &mut table,
-        &ShowParams {
-            label,
-            status: "",
-            reference,
-            storypoints,
-            steps: true,
-        },
-    );
+    let param = ShowParams {
+        label,
+        status: "",
+        reference,
+        storypoints,
+        steps: true,
+    };
+    set_title(&mut table, &param);
     for t in tasks {
         let task_labels: Vec<String> = db::get_labels(db, t.id).unwrap_or_default();
         if check_label(label, &task_labels)
@@ -200,6 +198,7 @@ pub fn show_short(
                 row.add_cell(Cell::new(&reference_str));
             }
             table.add_row(row);
+            show_steps(&db, &mut table, t.id, &param);
             let counter = stats.entry(t.status.as_str()).or_insert(0u64);
             *counter += 1;
         }
